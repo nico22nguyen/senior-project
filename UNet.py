@@ -1,5 +1,9 @@
+import random
+import tensorflow as tf
+import numpy as np
 import keras.layers as k_layers
 from keras import Model
+from diffusion import timesteps, betas, alphas_cumulative, noise_image
 import layers
 
 class UNet(Model):
@@ -29,8 +33,11 @@ class UNet(Model):
         layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
       ])
 
-  def call(self, inputs):
-    x = inputs
+  def call(self, inputs, timestep):
+    # add timestamp embedding
+    x = np.expand_dims(inputs.copy(), axis=-1)
+    x[-1] = timestep
+    
     skip_connections = []
 
     # call downsampling layers
@@ -56,4 +63,39 @@ class UNet(Model):
       x = attention(x)
       x = upsample(x)
     
-    return x
+    # remove timestamp embedding
+    return tf.squeeze(x, axis=-1)
+  
+  def train(self, data, epochs=5, batch_size=32, learning_rate=0.001):
+    for epoch in range(epochs):
+      for batch in range (0, len(data), batch_size):
+        x = data[batch : batch + batch_size]
+        timestep = random.randint(0, timesteps - 1)
+        with tf.GradientTape() as tape:
+          predicted_noise = self.call(x, timestep)
+          actual_noise = noise_image(x, timestep)
+          loss = tf.reduce_mean(tf.square(predicted_noise - actual_noise))
+        gradients = tape.gradient(loss, self.trainable_variables)
+        optimizer = tf.keras.optimizers.Adam(learning_rate)
+        optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+        print(f'epoch: {epoch}, batch: {batch}, loss: {loss}')
+
+  def sample_timestep(self, x, timestep):
+    sqrt_recip_alphas = ((1 / (1. - betas)) ** 0.5)
+
+    beta = betas[timestep]
+    alpha = alphas_cumulative[timestep]
+    sqrt_recip_alpha = sqrt_recip_alphas[timestep]
+
+    predicted_mean = sqrt_recip_alpha * (x - beta * self.call(x, timestep) / alpha)
+
+    noise = tf.random.normal(shape=x.shape)
+    return predicted_mean + beta * noise
+  
+  # since the UNet learns how to predict the noise, we don't call the UNet directly to sample,
+  # instead we call it to produce the predicted mean, then use that mean to statistically derive the sample
+  def sample(self, x):
+    denoised = None
+    for timestep in range(0, timesteps, -1):
+      denoised = self.sample_timestep(x, timestep)
+    return denoised
