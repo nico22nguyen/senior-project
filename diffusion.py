@@ -1,19 +1,14 @@
 import tensorflow as tf
 import keras.layers as layers
 from keras import Model
-import keras.datasets.mnist as mnist
-import matplotlib.pyplot as plt
 import helpers
 
 class UNet(Model):
-  def __init__(self, input_shape, num_downsamples=3):
+  def __init__(self, num_downsamples=3):
     super().__init__()
     self.downsample_layers = []
     self.upsample_layers = []
     self.num_downsamples = num_downsamples
-
-    self.initial_shape = input_shape[1]
-    self.min_shape = self.initial_shape - 2 ** num_downsamples
 
     # initialize downsampling layers
     for i in range(num_downsamples):
@@ -75,16 +70,3 @@ def noise_image(image, timestep):
   sigma = (1 - alphas_cumulative[timestep]) * random_normal
 
   return tf.random.normal(shape=image.shape, mean=mu, stddev=sigma, dtype=tf.float32)
-
-def main():
-  (x_train, _), (x_test, y_test) = mnist.load_data()
-  x_train = x_train / 255 # tf.expand_dims(x_train, axis=-1) / 255
-
-  plt.figure()
-  plt.imshow(x_train[0, :, :, 0], cmap='gray')
-  model = UNet(x_train.shape)
-  out = model.call(x_train[:1])
-
-  plt.figure()
-  plt.imshow(out[0, :, :, 0], cmap='gray')
-  plt.show()
