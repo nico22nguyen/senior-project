@@ -89,6 +89,9 @@ class UNet(Model):
 
     predicted_mean = sqrt_recip_alpha * (x - beta * self.call(x, timestep) / alpha)
 
+    if timestep == 0:
+      return predicted_mean
+    
     noise = tf.random.normal(shape=x.shape)
     return predicted_mean + beta * noise
   
@@ -96,6 +99,6 @@ class UNet(Model):
   # instead we call it to produce the predicted mean, then use that mean to statistically derive the sample
   def sample(self, x):
     denoised = None
-    for timestep in range(0, timesteps, -1):
+    for timestep in range(timesteps - 1, -1, -1):
       denoised = self.sample_timestep(x, timestep)
     return denoised
