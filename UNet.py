@@ -6,6 +6,7 @@ from keras import Model
 from diffusion import timesteps, betas, alphas_cumulative, noise_image
 import layers
 
+# Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
   def __init__(self, num_downsamples=3):
     super().__init__()
