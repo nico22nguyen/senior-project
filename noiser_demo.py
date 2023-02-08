@@ -1,15 +1,15 @@
 import math
-import keras.datasets.cifar100 as cifar100
+import keras.datasets.mnist as mnist
 import matplotlib.pyplot as plt
 from diffusion import noise_image
 
-NUM_SAMPLES = 10
-MAX_TIME = 24
-NUM_PROGRESSIONS = 12
+NUM_SAMPLES = 1
+MAX_TIME = 100
+NUM_PROGRESSIONS = 25
 
 STEP_SIZE = math.ceil(MAX_TIME / NUM_PROGRESSIONS)
 
-(x_train, _), (x_test, y_test) = cifar100.load_data()
+(x_train, _), (x_test, y_test) = mnist.load_data()
 x_train = x_train / 255
 
 noised_image_progressions = []
@@ -24,5 +24,5 @@ for sample_index, progression in enumerate(noised_image_progressions):
   fig, axs = plt.subplots(num_rows, num_cols)
   fig.suptitle(f'Sample {sample_index + 1}')
   for timestep, image in enumerate(progression):
-    axs[timestep // num_cols][timestep % num_cols].imshow(image)
+    axs[timestep // num_cols][timestep % num_cols].imshow(image, cmap='gray')
 plt.show()
