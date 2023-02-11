@@ -1,14 +1,11 @@
-import random
 import tensorflow as tf
 import numpy as np
 import keras.layers as k_layers
 from keras import Model
-from diffusion import timesteps, betas, alphas_cumulative, noise_image
+from diffusion import TIMESTEPS, BETAS, alphas_cumulative, noise_images
+from plotter import update_losses, update_samples, draw_plots
 import layers
 import matplotlib.pyplot as plt
-
-# testing
-fig, axs = plt.subplots(3, 1)
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
@@ -38,11 +35,16 @@ class UNet(Model):
         layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
       ])
 
-  def call(self, inputs, timestep):
-    # add timestamp embedding
-    x = np.expand_dims(inputs.copy(), axis=-1)
-    # (b, 28, 28) -> (b, 28, 28, 1)
+    num_filters = 2 ** (4 + self.num_downsamples)
+    self.middle_conv1 = k_layers.Conv2D(num_filters, 3, padding='same')
+    self.middle_conv2 = k_layers.Conv2D(num_filters, 3, padding='same')
+    self.time_embedder = layers.TimeMLP()
 
+  def call(self, inputs, batch_timestep_list, batch_size=None):
+    # add channel dimension
+    x = np.expand_dims(inputs.copy(), axis=-1)
+
+    # initialize skip connections list
     skip_connections = []
 
     # call downsampling layers
@@ -54,11 +56,10 @@ class UNet(Model):
       x = downsample(x)
 
     # bottleneck
-    num_filters = 2 ** (4 + self.num_downsamples)
-    x = k_layers.Conv2D(num_filters, 3, padding='same')(x)
+    x = self.middle_conv1(x)
     # attention not working yet
     # x = layers.Attention()(x)
-    x = k_layers.Conv2D(num_filters, 3, padding='same')(x)
+    x = self.middle_conv2(x)
 
     # call upsampling layers
     for [conv1, conv2, attention, upsample] in self.upsample_layers:
@@ -68,42 +69,54 @@ class UNet(Model):
       x = attention(x)
       x = upsample(x)
     
-    time_embedding = layers.TimeMLP()(timestep)
-    return tf.squeeze(x, axis=-1) + time_embedding
+    # pad with zeros if we don't have batch_size samples in the batch, necessary because the input size of the MLP is constant
+    # so the last batch will throw an error expecting there to be batch_size samples
+    if batch_size is not None and len(batch_timestep_list < batch_size):
+      batch_timestep_list = tf.concat([
+        batch_timestep_list,
+        tf.zeros(batch_size - len(batch_timestep_list), dtype=tf.dtypes.int32)
+      ], axis=0)
+
+    # get timestep embeddings
+    time_embedding = self.time_embedder(batch_timestep_list)
+    # remove zeros if we padded, else this line does nothing (x.shape[0] == time_embedding.shape[0])
+    time_embedding = time_embedding[:x.shape[0]]
+    
+    # remove channel dimension added at the beginning of the function
+    x_no_channel_dim = tf.squeeze(x, axis=-1)
+
+    return x_no_channel_dim + time_embedding
   
-  def train(self, data, epochs=5, batch_size=32, learning_rate=1e-6):
+  def train(self, data, epochs=5, batch_size=32, learning_rate=1e-6, show_samples=False, show_losses=True):
     for epoch in range(epochs):
       for batch in range (0, len(data), batch_size):
-        x = data[batch : batch + batch_size]
-        timestep = random.randint(0, timesteps - 1)
+        image_batch = data[batch : batch + batch_size]
+        timesteps = tf.random.uniform([len(image_batch)], 0, TIMESTEPS - 1, dtype=tf.int32)
         with tf.GradientTape() as tape:
-          predicted_noise = self.call(x, timestep)
-          actual_noise = noise_image(x, timestep)
+          predicted_noise = self.call(image_batch, timesteps, batch_size)
+          actual_noise = noise_images(image_batch, timesteps)
           loss = tf.reduce_mean(tf.square(predicted_noise - actual_noise))
         gradients = tape.gradient(loss, self.trainable_variables)
         optimizer = tf.keras.optimizers.Adam(learning_rate)
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         print(f'epoch: {epoch}, batch: {batch}, loss: {loss}')
 
-        if batch % 100 == 0:
-          ## testing
-          fig.suptitle(f'batch: {batch} (loss = {loss})')
-          fig.tight_layout()
-          axs[0].imshow(x[0], cmap='gray')
-          axs[0].set_title('image from dataset')
-          axs[1].imshow(actual_noise[0], cmap='gray')
-          axs[1].set_title(f'noised image at timestep {timestep} according to noiser function')
-          axs[2].imshow(predicted_noise[0], cmap='gray')
-          axs[2].set_title(f'noised image at timestep {timestep} according to unet')
+        # show losses every batch
+        if show_losses:
+          update_losses(loss)
+
+        # show sample every 10 batches
+        if show_samples and batch % (batch_size * 10) == 0:
+          update_samples(batch, loss, image_batch[0], actual_noise[0], predicted_noise[0], timesteps[0])
           
-          plt.pause(0.05)
-          plt.show(block=False)
-          ## testing
+        # draw if we need to draw something
+        if show_losses or show_samples:
+          draw_plots()
 
   def sample_timestep(self, x, timestep):
-    sqrt_recip_alphas = ((1 / (1. - betas)) ** 0.5)
+    sqrt_recip_alphas = ((1 / (1. - BETAS)) ** 0.5)
 
-    beta = betas[timestep]
+    beta = BETAS[timestep]
     alpha = alphas_cumulative[timestep]
     sqrt_recip_alpha = sqrt_recip_alphas[timestep]
 
@@ -120,7 +133,7 @@ class UNet(Model):
   def sample(self, shape):
     denoised = tf.random.normal(shape=shape)
     _, axs = plt.subplots(10, 10)
-    for timestep in range(timesteps - 1, -1, -1):
+    for timestep in range(TIMESTEPS - 1, -1, -1):
       denoised = self.sample_timestep(denoised, timestep)[0]
 
       axs[timestep // 10][timestep % 10].imshow(denoised, cmap='gray')
