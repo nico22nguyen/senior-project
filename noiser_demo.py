@@ -1,9 +1,10 @@
 import math
 import keras.datasets.mnist as mnist
 import matplotlib.pyplot as plt
-from diffusion import noise_image
+import tensorflow as tf
+from diffusion import noise_images
 
-NUM_SAMPLES = 1
+NUM_SAMPLES = 3
 MAX_TIME = 100
 NUM_PROGRESSIONS = 25
 
@@ -14,7 +15,10 @@ x_train = x_train / 255
 
 noised_image_progressions = []
 for (i, image) in enumerate(x_train[:NUM_SAMPLES]):
-  noise_progression = [noise_image(image, timestep) for timestep in range(0, MAX_TIME, STEP_SIZE)]
+  repeated_image = tf.repeat(tf.expand_dims(image, axis=0), repeats=NUM_PROGRESSIONS, axis=0)
+
+  # noise the same image at different timesteps
+  noise_progression = noise_images(repeated_image, range(0, MAX_TIME, STEP_SIZE))
   noised_image_progressions.append(noise_progression)
 
 for sample_index, progression in enumerate(noised_image_progressions):
