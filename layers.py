@@ -48,9 +48,19 @@ class TimeMLP(layers.Layer):
     super().__init__()
     # consider using silu here instead
     self.activation = layers.ReLU()
-    self.embedder = layers.Dense(28 * 28)
+    self.embedder = None
 
-  def call(self, timestep):
-    x = self.activation(timestep)
-    time_vector = self.embedder(tf.expand_dims(tf.expand_dims(x, axis=-1), axis=-1))
-    return tf.reshape(time_vector, (28, 28))
+  def call(self, timestep_list):
+    batch_size = timestep_list.shape[0]
+    if self.embedder is None:
+      self.embedder = layers.Dense(batch_size * 28 * 28)
+
+    # activate and pad timestep_list (increase to dimensionality required by embedder)
+    x = self.activation(timestep_list)
+    padded_x = tf.expand_dims(tf.expand_dims(x, axis=0), axis=0)
+
+    # calculate embeddings
+    time_vector = self.embedder(padded_x)
+
+    # reshape flattened list to batch of 2d images
+    return tf.reshape(time_vector, (batch_size, 28, 28))
