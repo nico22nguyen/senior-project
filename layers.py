@@ -1,7 +1,8 @@
 import keras.layers as layers
 import tensorflow_addons as tfa
+import tensorflow as tf
 
-# couldnt get attention to work
+# couldn't get attention to work
 class AttentionAndGroupNorm(layers.Layer):
   def __init__(self):
     super().__init__()
@@ -41,3 +42,15 @@ class Identity(layers.Layer):
 
   def call(self, inputs):
     return inputs
+  
+class TimeMLP(layers.Layer):
+  def __init__(self):
+    super().__init__()
+    # consider using silu here instead
+    self.activation = layers.ReLU()
+    self.embedder = layers.Dense(28 * 28)
+
+  def call(self, timestep):
+    x = self.activation(timestep)
+    time_vector = self.embedder(tf.expand_dims(tf.expand_dims(x, axis=-1), axis=-1))
+    return tf.reshape(time_vector, (28, 28))
