@@ -35,9 +35,12 @@ class UNet(Model):
         layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
       ])
 
+    # intialize bottleneck layers
     num_filters = 2 ** (4 + self.num_downsamples)
     self.middle_conv1 = k_layers.Conv2D(num_filters, 3, padding='same')
     self.middle_conv2 = k_layers.Conv2D(num_filters, 3, padding='same')
+
+    # initialize time embedding layer
     self.time_embedder = layers.TimeMLP()
 
   def call(self, inputs, batch_timestep_list, batch_size=None):
