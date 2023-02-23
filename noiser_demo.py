@@ -2,7 +2,7 @@ import math
 import keras.datasets.mnist as mnist
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from diffusion import noise_images
+from noiser import noise_images
 
 NUM_SAMPLES = 3
 MAX_TIME = 100

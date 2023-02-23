@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import keras.layers as k_layers
 from keras import Model
-from diffusion import TIMESTEPS, BETAS, alphas_cumulative, noise_images
+from noiser import TIMESTEPS, BETAS, alphas_cumulative, noise_images
 from plotter import update_losses, update_samples, draw_plots
 import layers
 import matplotlib.pyplot as plt
