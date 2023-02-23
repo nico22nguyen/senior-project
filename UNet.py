@@ -93,15 +93,27 @@ class UNet(Model):
   def train(self, data, epochs=5, batch_size=32, learning_rate=1e-6, show_samples=False, show_losses=True):
     for epoch in range(epochs):
       for batch in range (0, len(data), batch_size):
+        # select a batch of images
         image_batch = data[batch : batch + batch_size]
+
+        # generate num_batches random timesteps
         timesteps = tf.random.uniform([len(image_batch)], 0, TIMESTEPS - 1, dtype=tf.int32)
+
         with tf.GradientTape() as tape:
+          # call the network to produce the outputs
           predicted_noise = self.call(image_batch, timesteps, batch_size)
+
+          # get what the noise should be
           actual_noise = noise_images(image_batch, timesteps)
+
+          # get loss between predicted and actual noise
           loss = tf.reduce_mean(tf.square(predicted_noise - actual_noise))
+
+        # update weights
         gradients = tape.gradient(loss, self.trainable_variables)
         optimizer = tf.keras.optimizers.Adam(learning_rate)
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+        
         print(f'epoch: {epoch}, batch: {batch}, loss: {loss}')
 
         # show losses every batch
