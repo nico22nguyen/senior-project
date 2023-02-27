@@ -2,12 +2,17 @@ import keras.datasets.mnist as mnist
 import matplotlib.pyplot as plt
 from UNet import UNet
 import tensorflow as tf
+import numpy as np
+
+shoes = np.load('data/shoes.npy')
+cats_dogs = np.load('data/cats_dogs.npy')
+faces = np.load('data/faces.npy')
 
 (x_train, _), (x_test, y_test) = mnist.load_data()
-x_train = x_train / 255 # tf.expand_dims(x_train, axis=-1) / 255
+x_train = x_train / 255
 
 model = UNet()
-model.train(x_train, epochs=1, batch_size=32, show_samples=True, show_losses=False)
+model.train(x_train, epochs=3, batch_size=16, show_samples=True, show_losses=True)
 
 # trained
 """
