@@ -1,3 +1,9 @@
+# dont push data to github, too big
+data/
+
+# ignore prettier
+.prettierrc
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
