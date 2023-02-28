@@ -103,6 +103,8 @@ class UNet(Model):
     return x + time_embedding
   
   def train(self, data, epochs=5, batch_size=32, learning_rate=1e-6, show_samples=False, show_losses=True):
+    if len(data.shape) != 4:
+      raise ValueError('data must be a 4-tuple in the form of (num_samples, height, width, channels)')
     for epoch in range(epochs):
       for batch in range (0, len(data), batch_size):
         # select a batch of images
