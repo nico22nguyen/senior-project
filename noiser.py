@@ -17,10 +17,10 @@ def noise_images(images, _timesteps):
   selected_sqrt_one_minus_alphas = tf.gather(sqrt_one_minus_alphas, _timesteps)
 
   # modify images based on timestep
-  modified_images = tf.einsum('i,ijk->ijk', selected_sqrt_alphas, _images)
+  modified_images = tf.einsum('i,ijkl->ijkl', selected_sqrt_alphas, _images)
 
   # modify noise based on timestep
-  modified_noise = tf.einsum('i,ijk->ijk', selected_sqrt_one_minus_alphas, random_normal)
+  modified_noise = tf.einsum('i,ijkl->ijkl', selected_sqrt_one_minus_alphas, random_normal)
 
   # return sum
   return modified_images + modified_noise
