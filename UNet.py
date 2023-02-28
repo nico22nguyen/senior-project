@@ -9,8 +9,10 @@ import matplotlib.pyplot as plt
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
-  def __init__(self, num_downsamples=3):
+  def __init__(self, image_shape, num_downsamples=3):
     super().__init__()
+    if len(image_shape) != 3:
+      raise ValueError('image_shape must be a 3-tuple in the form of (height, width, channels)')
     self.downsample_layers = []
     self.upsample_layers = []
     self.num_downsamples = num_downsamples
@@ -27,7 +29,7 @@ class UNet(Model):
     
     # initialize upsampling layers
     for i in range(num_downsamples):
-      num_filters = 1 if num_downsamples - i == 1 else 2 ** (3 + num_downsamples - i)
+      num_filters = image_shape[-1] if num_downsamples - i == 1 else 2 ** (3 + num_downsamples - i)
       self.upsample_layers.append([
         k_layers.Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
         k_layers.Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
@@ -41,21 +43,30 @@ class UNet(Model):
     self.middle_conv2 = k_layers.Conv2D(num_filters, 3, padding='same')
 
     # initialize time embedding layer
-    self.time_embedder = layers.TimeMLP()
+    self.time_embedder = layers.TimeMLP(image_shape=image_shape)
 
-  def call(self, inputs, batch_timestep_list, batch_size=None):
-    # add channel dimension
-    x = np.expand_dims(inputs.copy(), axis=-1)
+  def call(self, inputs, batch_timestep_list, batch_size):
+    x = inputs.copy()
 
     # initialize skip connections list
     skip_connections = []
 
+    # initialize dimension paddings list, used for maintaining image shape through upsamples/downsamples
+    dim_paddings = []
+
     # call downsampling layers
-    for [conv1, conv2, attention, downsample] in self.downsample_layers:
+    for i, [conv1, conv2, attention, downsample] in enumerate(self.downsample_layers):
       x = conv1(x)
       x = conv2(x)
       x = attention(x)
       skip_connections.append(x)
+
+      # if dimensions are odd, they will be padded in the downsampling layer. We need to keep track of this so that we can remove the padding in the upsampling layer
+      padded_dim1 = x.shape[1] % 2 == 1
+      padded_dim2 = x.shape[2] % 2 == 1
+      if i < self.num_downsamples - 1:
+        dim_paddings.append([padded_dim1, padded_dim2])
+
       x = downsample(x)
 
     # bottleneck
@@ -70,25 +81,26 @@ class UNet(Model):
       x = conv1(x)
       x = conv2(x)
       x = attention(x)
-      x = upsample(x)
+
+      # undo padding from downsampling if necessary
+      if len(dim_paddings) > 0:
+        padded_1, padded_2 = dim_paddings.pop()
+        x = upsample(x, padded_1, padded_2)
+      else:
+        x = upsample(x)
     
     # pad with zeros if we don't have batch_size samples in the batch, necessary because the input size of the MLP is constant
     # so the last batch will throw an error expecting there to be batch_size samples
-    if batch_size is not None and len(batch_timestep_list < batch_size):
-      batch_timestep_list = tf.concat([
-        batch_timestep_list,
-        tf.zeros(batch_size - len(batch_timestep_list), dtype=tf.dtypes.int32)
-      ], axis=0)
+    if len(batch_timestep_list < batch_size):
+      padding = tf.zeros(batch_size - len(batch_timestep_list), dtype=tf.dtypes.int32)
+      batch_timestep_list = tf.concat([batch_timestep_list, padding], axis=0)
 
     # get timestep embeddings
     time_embedding = self.time_embedder(batch_timestep_list)
     # remove zeros if we padded, else this line does nothing (x.shape[0] == time_embedding.shape[0])
     time_embedding = time_embedding[:x.shape[0]]
-    
-    # remove channel dimension added at the beginning of the function
-    x_no_channel_dim = tf.squeeze(x, axis=-1)
 
-    return x_no_channel_dim + time_embedding
+    return x + time_embedding
   
   def train(self, data, epochs=5, batch_size=32, learning_rate=1e-6, show_samples=False, show_losses=True):
     for epoch in range(epochs):
