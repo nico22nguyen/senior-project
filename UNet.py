@@ -168,17 +168,3 @@ class UNet(Model):
       axs[timestep // 10][timestep % 10].imshow(denoised, cmap='gray')
     plt.show()
     return denoised
-
-# generates and displays samples from the generator
-def show_progress(model, subplots, epoch=0, batch=0):
-  fig, axes = subplots
-  sample = model.sample(np.random.normal(size=(9, 28, 28)))
-
-  if epoch > 0:
-    fig.suptitle('Epoch {}, Batch {} samples'.format(epoch, batch))
-
-  for img, axis in zip(sample, np.ndarray.flatten(axes)):
-    axis.imshow(img, cmap='gray')
-
-  plt.pause(0.05)
-  plt.show(block=False)
