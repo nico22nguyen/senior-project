@@ -11,10 +11,10 @@ NUM_PROGRESSIONS = 25
 STEP_SIZE = math.ceil(MAX_TIME / NUM_PROGRESSIONS)
 
 (x_train, _), (x_test, y_test) = mnist.load_data()
-x_train = x_train / 255
+x_train = 2 * (x_train[:NUM_SAMPLES] / 255) - 1
 
 noised_image_progressions = []
-for (i, image) in enumerate(x_train[:NUM_SAMPLES]):
+for (i, image) in enumerate(x_train):
   repeated_image = tf.repeat(tf.expand_dims(image, axis=0), repeats=NUM_PROGRESSIONS, axis=0)
 
   # noise the same image at different timesteps
