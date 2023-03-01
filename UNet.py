@@ -1,5 +1,5 @@
 import tensorflow as tf
-import keras.layers as k_layers
+from keras.layers import Conv2D, Conv2DTranspose
 from keras import Model
 from noiser import TIMESTEPS, BETAS, alphas_cumulative, noise_images
 from plotter import update_losses, update_samples, draw_plots
@@ -19,8 +19,8 @@ class UNet(Model):
     for i in range(num_downsamples):
       num_filters = 2 ** (5 + i)
       self.downsample_layers.append([
-        k_layers.Conv2D(num_filters, 3, padding='same', activation='relu'),
-        k_layers.Conv2D(num_filters, 3, padding='same', activation='relu'),
+        Conv2D(num_filters, 3, padding='same', activation='relu'),
+        Conv2D(num_filters, 3, padding='same', activation='relu'),
         layers.Residual(layers.AttentionAndGroupNorm()),
         layers.Downsample() if i < num_downsamples - 1 else layers.Identity()
       ])
@@ -29,16 +29,16 @@ class UNet(Model):
     for i in range(num_downsamples):
       num_filters = image_shape[-1] if num_downsamples - i == 1 else 2 ** (3 + num_downsamples - i)
       self.upsample_layers.append([
-        k_layers.Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
-        k_layers.Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
+        Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
+        Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
         layers.Residual(layers.AttentionAndGroupNorm()),
         layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
       ])
 
     # intialize bottleneck layers
     num_filters = 2 ** (4 + self.num_downsamples)
-    self.middle_conv1 = k_layers.Conv2D(num_filters, 3, padding='same')
-    self.middle_conv2 = k_layers.Conv2D(num_filters, 3, padding='same')
+    self.middle_conv1 = Conv2D(num_filters, 3, padding='same')
+    self.middle_conv2 = Conv2D(num_filters, 3, padding='same')
 
     # initialize time embedding layer
     self.time_embedder = layers.TimeMLP(image_shape=image_shape)
