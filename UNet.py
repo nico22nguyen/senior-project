@@ -1,11 +1,9 @@
 import tensorflow as tf
-import numpy as np
 import keras.layers as k_layers
 from keras import Model
 from noiser import TIMESTEPS, BETAS, alphas_cumulative, noise_images
 from plotter import update_losses, update_samples, draw_plots
 import layers
-import matplotlib.pyplot as plt
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
@@ -161,10 +159,8 @@ class UNet(Model):
   # instead we call it to produce the predicted mean, then use that mean to statistically derive the sample
   def sample(self, shape):
     denoised = tf.random.normal(shape=shape)
-    _, axs = plt.subplots(10, 10)
-    for timestep in range(TIMESTEPS - 1, -1, -1):
-      denoised = self.sample_timestep(denoised, timestep)[0]
 
-      axs[timestep // 10][timestep % 10].imshow(denoised, cmap='gray')
-    plt.show()
+    for timestep in range(TIMESTEPS - 1, -1, -1):
+      denoised = self.sample_timestep(denoised, timestep)
+    
     return denoised
