@@ -59,7 +59,8 @@ class UNet(Model):
       x = attention(x)
       skip_connections.append(x)
 
-      # if dimensions are odd, they will be padded in the downsampling layer. We need to keep track of this so that we can remove the padding in the upsampling layer
+      # if dimensions are odd, they will be padded in the downsampling layer.
+      # We need to keep track of this so that we can remove the padding in the upsampling layer
       padded_dim1 = x.shape[1] % 2 == 1
       padded_dim2 = x.shape[2] % 2 == 1
       if i < self.num_downsamples - 1:
