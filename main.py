@@ -16,8 +16,8 @@ elif network_code == '3':
 elif network_code == '4':
   data = np.load('data/faces.npy')
 
-# normalize to [0, 1]
-data = data / 255
+# normalize to [-1, 1]
+data = 2 * (data / 255) - 1
 
 # add channel dimension if necessary
 if len(data.shape) != 4:
