@@ -43,8 +43,8 @@ class UNet(Model):
     # initialize time embedding layer
     self.time_embedder = layers.TimeMLP(image_shape=image_shape)
 
-  def call(self, inputs, batch_timestep_list, batch_size):
-    x = inputs.copy()
+  def call(self, inputs, batch_timestep_list, batch_size=32):
+    x = inputs
 
     # initialize skip connections list
     skip_connections = []
@@ -90,7 +90,7 @@ class UNet(Model):
     
     # pad with zeros if we don't have batch_size samples in the batch, necessary because the input size of the MLP is constant
     # so the last batch will throw an error expecting there to be batch_size samples
-    if len(batch_timestep_list < batch_size):
+    if len(batch_timestep_list) < batch_size:
       padding = tf.zeros(batch_size - len(batch_timestep_list), dtype=tf.dtypes.int32)
       batch_timestep_list = tf.concat([batch_timestep_list, padding], axis=0)
 
@@ -114,7 +114,7 @@ class UNet(Model):
 
         with tf.GradientTape() as tape:
           # call the network to produce the outputs
-          predicted_noise = self.call(image_batch, timesteps, batch_size)
+          predicted_noise = self(image_batch, timesteps, batch_size)
 
           # get what the noise should be
           actual_noise = noise_images(image_batch, timesteps)
@@ -148,7 +148,7 @@ class UNet(Model):
     alpha = alphas_cumulative[timestep]
     sqrt_recip_alpha = sqrt_recip_alphas[timestep]
 
-    predicted_mean = sqrt_recip_alpha * (x - beta * self.call([x], timestep) / alpha)
+    predicted_mean = sqrt_recip_alpha * (x - beta * self([x], timestep) / alpha)
 
     if timestep == 0:
       return predicted_mean
