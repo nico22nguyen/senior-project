@@ -1,9 +1,14 @@
 import keras.datasets.mnist as mnist
-import matplotlib.pyplot as plt
 from UNet import UNet
 import numpy as np
 
-network_code = input('Which network would you like to train?\n\t1. MNIST\n\t2. Shoes\n\t3. Cats and Dogs\n\t4. Faces\n')
+# ask user if they want to save the weights
+def ask_to_save():
+  saveYN = input('Do you want to save the weights? (y/n): ')
+  if saveYN == 'y':
+    model.save_weights('models/mnist_weights')
+
+network_code = '1'# input('Which network would you like to train?\n\t1. MNIST\n\t2. Shoes\n\t3. Cats and Dogs\n\t4. Faces\n')
 
 # load data
 if network_code == '1':
@@ -23,8 +28,14 @@ data = 2 * (data / 255) - 1
 if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
-model = UNet(image_shape=data[0].shape)
-model.train(data, epochs=5, batch_size=32, show_samples=True, show_losses=True)
+model = UNet(image_shape=data[0].shape, batch_size=64)
+try:
+  model.train(data, epochs=2, show_samples=True, show_losses=True)
+except KeyboardInterrupt:
+  ask_to_save()
+  exit()
+
+ask_to_save()
 
 """
 denoised = tf.random.normal(shape=x_train[0].shape)
