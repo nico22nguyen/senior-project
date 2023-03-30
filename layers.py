@@ -3,6 +3,9 @@ import tensorflow_addons as tfa
 import tensorflow as tf
 import numpy as np
 
+range = np.linspace(0,np.pi,100)
+embeddings= tf.stack((tf.math.sin(range), tf.math.cos(range)))
+
 # couldn't get attention to work
 class AttentionAndGroupNorm(layers.Layer):
   def __init__(self):
@@ -62,24 +65,52 @@ class Identity(layers.Layer):
     return inputs
   
 class TimeMLP(layers.Layer):
-  def __init__(self, image_shape):
+  def __init__(self, num_channels):
     super().__init__()
-    # consider using silu here instead
-    self.activation = layers.ReLU()
-    self.embedder = None
-    self.image_shape = image_shape
+    self.dense = layers.Dense(num_channels)
 
   def call(self, timestep_list):
-    batch_size = timestep_list.shape[0]
-    if self.embedder is None:
-      self.embedder = layers.Dense(batch_size * np.prod(self.image_shape))
-
-    # activate and pad timestep_list (increase to dimensionality required by embedder)
-    x = self.activation(timestep_list)
-    padded_x = tf.expand_dims(tf.expand_dims(x, axis=0), axis=0)
+    embedded_timesteps = tf.transpose(tf.gather(embeddings, timestep_list, axis=1))
 
     # calculate embeddings
-    time_vector = self.embedder(padded_x)
+    time_vector = self.dense(embedded_timesteps)
 
-    # reshape flattened list to batch of 2d images (batch x height x width x channels)
-    return tf.reshape(time_vector, (batch_size, self.image_shape[0], self.image_shape[1], self.image_shape[2]))
+    # expand list to be added with batch of images
+    return tf.expand_dims(tf.expand_dims(time_vector, axis=1), axis=1)
+  
+class Conv2DWithTime(layers.Layer):
+  def __init__(self, num_filters, kernel_size):
+    super().__init__()
+    self.conv1 = layers.Conv2D(num_filters, kernel_size, padding='same', activation='relu')
+    self.time1 = TimeMLP(num_filters)
+    self.conv2 = layers.Conv2D(num_filters, kernel_size, padding='same', activation='relu')
+    self.time2 = TimeMLP(num_filters)
+
+  def call(self, inputs, timestep_list):
+    conv1_out = self.conv1(inputs)
+    t_e1 = self.time1(timestep_list)
+    x = conv1_out + t_e1
+
+    conv2_out = self.conv2(x)
+    t_e2 = self.time1(timestep_list)
+    x = conv2_out + t_e2
+
+    return x
+class Conv2DTransposeWithTime(layers.Layer):
+  def __init__(self, num_filters, kernel_size):
+    super().__init__()
+    self.conv1 = layers.Conv2DTranspose(num_filters, kernel_size, padding='same', activation='relu')
+    self.time1 = TimeMLP(num_filters)
+    self.conv2 = layers.Conv2DTranspose(num_filters, kernel_size, padding='same', activation='relu')
+    self.time2 = TimeMLP(num_filters)
+
+  def call(self, inputs, timestep_list):
+    conv1_out = self.conv1(inputs)
+    t_e1 = self.time1(timestep_list)
+    x = conv1_out + t_e1
+
+    conv2_out = self.conv2(x)
+    t_e2 = self.time1(timestep_list)
+    x = conv2_out + t_e2
+
+    return x
