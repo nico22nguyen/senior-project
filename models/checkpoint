@@ -1,2 +1,2 @@
-model_checkpoint_path: "1678995320"
-all_model_checkpoint_paths: "1678995320"
+model_checkpoint_path: "mnist_weights"
+all_model_checkpoint_paths: "mnist_weights"
