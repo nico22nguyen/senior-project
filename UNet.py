@@ -1,26 +1,27 @@
 import tensorflow as tf
-from keras.layers import Conv2D, Conv2DTranspose
+import numpy as np
+from keras.layers import Conv2D
 from keras import Model
 from noiser import TIMESTEPS, BETAS, alphas_cumulative, noise_images
-from plotter import update_losses, update_samples, draw_plots
+from plotter import update_losses, update_samples, draw_plots, activate_plots
 import layers
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
-  def __init__(self, image_shape, num_downsamples=3):
+  def __init__(self, image_shape, num_downsamples=3, batch_size=64):
     super().__init__()
     if len(image_shape) != 3:
       raise ValueError('image_shape must be a 3-tuple in the form of (height, width, channels)')
     self.downsample_layers = []
     self.upsample_layers = []
     self.num_downsamples = num_downsamples
+    self.batch_size = batch_size
 
     # initialize downsampling layers
     for i in range(num_downsamples):
       num_filters = 2 ** (5 + i)
       self.downsample_layers.append([
-        Conv2D(num_filters, 3, padding='same', activation='relu'),
-        Conv2D(num_filters, 3, padding='same', activation='relu'),
+        layers.Conv2DWithTime(num_filters, 3),
         layers.Residual(layers.AttentionAndGroupNorm()),
         layers.Downsample() if i < num_downsamples - 1 else layers.Identity()
       ])
@@ -29,8 +30,7 @@ class UNet(Model):
     for i in range(num_downsamples):
       num_filters = image_shape[-1] if num_downsamples - i == 1 else 2 ** (3 + num_downsamples - i)
       self.upsample_layers.append([
-        Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
-        Conv2DTranspose(num_filters, 3, padding='same', activation='relu'),
+        layers.Conv2DTransposeWithTime(num_filters, 3),
         layers.Residual(layers.AttentionAndGroupNorm()),
         layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
       ])
@@ -40,10 +40,7 @@ class UNet(Model):
     self.middle_conv1 = Conv2D(num_filters, 3, padding='same')
     self.middle_conv2 = Conv2D(num_filters, 3, padding='same')
 
-    # initialize time embedding layer
-    self.time_embedder = layers.TimeMLP(image_shape=image_shape)
-
-  def call(self, inputs, batch_timestep_list, batch_size=32):
+  def call(self, inputs, batch_timestep_list): # network(0) -> 99 + ? = 100
     x = inputs
 
     # initialize skip connections list
@@ -53,9 +50,8 @@ class UNet(Model):
     dim_paddings = []
 
     # call downsampling layers
-    for i, [conv1, conv2, attention, downsample] in enumerate(self.downsample_layers):
-      x = conv1(x)
-      x = conv2(x)
+    for i, [conv, attention, downsample] in enumerate(self.downsample_layers):
+      x = conv(x, batch_timestep_list)
       x = attention(x)
       skip_connections.append(x)
 
@@ -75,10 +71,9 @@ class UNet(Model):
     x = self.middle_conv2(x)
 
     # call upsampling layers
-    for [conv1, conv2, attention, upsample] in self.upsample_layers:
+    for [conv, attention, upsample] in self.upsample_layers:
       x = x + skip_connections.pop()
-      x = conv1(x)
-      x = conv2(x)
+      x = conv(x, batch_timestep_list)
       x = attention(x)
 
       # undo padding from downsampling if necessary
@@ -87,40 +82,33 @@ class UNet(Model):
         x = upsample(x, padded_1, padded_2)
       else:
         x = upsample(x)
-    
-    # pad with zeros if we don't have batch_size samples in the batch, necessary because the input size of the MLP is constant
-    # so the last batch will throw an error expecting there to be batch_size samples
-    if len(batch_timestep_list) < batch_size:
-      padding = tf.zeros(batch_size - len(batch_timestep_list), dtype=tf.dtypes.int32)
-      batch_timestep_list = tf.concat([batch_timestep_list, padding], axis=0)
 
-    # get timestep embeddings
-    time_embedding = self.time_embedder(batch_timestep_list)
-    # remove zeros if we padded, else this line does nothing (x.shape[0] == time_embedding.shape[0])
-    time_embedding = time_embedding[:x.shape[0]]
-
-    return x + time_embedding
+    # noise for image
+    return x
   
-  def train(self, data, epochs=5, batch_size=32, learning_rate=1e-6, show_samples=False, show_losses=True):
+  def train(self, data, epochs=5, learning_rate=8e-6, show_samples=False, show_losses=True):
     if len(data.shape) != 4:
       raise ValueError('data must be a 4-tuple in the form of (num_samples, height, width, channels)')
+    if show_losses or show_samples:
+      activate_plots()
+
     for epoch in range(epochs):
-      for batch in range (0, len(data), batch_size):
+      for batch in range (0, len(data), self.batch_size):
         # select a batch of images
-        image_batch = data[batch : batch + batch_size]
+        original_images = data[batch : batch + self.batch_size]
 
         # generate num_batches random timesteps
-        timesteps = tf.random.uniform([len(image_batch)], 0, TIMESTEPS - 1, dtype=tf.int32)
+        timesteps = tf.random.uniform([len(original_images)], 1, TIMESTEPS, dtype=tf.int32)
 
         with tf.GradientTape() as tape:
-          # call the network to produce the outputs
-          predicted_noise = self(image_batch, timesteps, batch_size)
+          (minor_noisy_images, used_noise) = noise_images(original_images, timesteps - 1)
+          (major_noisy_images, _) = noise_images(original_images, timesteps, used_noise)
 
-          # get what the noise should be
-          actual_noise = noise_images(image_batch, timesteps)
+          network_generated_noise = self(major_noisy_images, timesteps) # what was the noise given time + starting ?
+          theoretical_noise = major_noisy_images - minor_noisy_images # (this was the noise)
 
           # get loss between predicted and actual noise
-          loss = tf.reduce_mean(tf.square(predicted_noise - actual_noise))
+          loss = tf.reduce_mean(tf.square(network_generated_noise - theoretical_noise))
 
         # update weights
         gradients = tape.gradient(loss, self.trainable_variables)
@@ -130,12 +118,12 @@ class UNet(Model):
         print(f'epoch: {epoch}, batch: {batch}, loss: {loss}')
 
         # show losses every batch
-        if show_losses:
+        if show_losses and batch:
           update_losses(loss)
 
         # show sample every 10 batches
-        if show_samples and batch % (batch_size * 10) == 0:
-          update_samples(batch, loss, image_batch[0], actual_noise[0], predicted_noise[0], timesteps[0])
+        if show_samples and batch % (self.batch_size * 10) == 0:
+          update_samples(batch, epoch, loss, original_images[0], minor_noisy_images[0], major_noisy_images[0], network_generated_noise[0], timesteps[0])
           
         # draw if we need to draw something
         if show_losses or show_samples:
@@ -148,7 +136,7 @@ class UNet(Model):
     alpha = alphas_cumulative[timestep]
     sqrt_recip_alpha = sqrt_recip_alphas[timestep]
 
-    predicted_mean = sqrt_recip_alpha * (x - beta * self([x], timestep) / alpha)
+    predicted_mean = sqrt_recip_alpha * (x - beta * self(x, np.array([timestep])) / alpha)
 
     if timestep == 0:
       return predicted_mean
