@@ -2,15 +2,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Don't initialize figures in case the user doesn't want to see them.
-# If it's initialized, the figures will stull pop up, they just won't update
+# If it's initialized, there will be a figure that pops up whether the user requests it or not.
 sample_fig = None
-sample_fig_id = 1
 loss_fig = None
+sample_fig_id = 1
 loss_fig_id = 2
-plt.ion()
+sample_process_fig_id = 3
 
 loss_xs = []
 loss_ys = []
+
+def activate_plots():
+  plt.ion()
 
 def update_losses(loss):
   global loss_fig
@@ -74,6 +77,17 @@ def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, noise
   plt.subplot(3, 3, 9)
   plt.imshow(unet_noise + noised_at_t_minus_1, cmap='gray')
   plt.title(f'unet prediction at timestep {timestep}')
+
+def show_sample_process(img_noising_sequence):
+  plt.figure(sample_process_fig_id)
+  for i in range(10):
+    for j in range(10):
+      if i == 9 and j == 9:
+        continue
+      plt.subplot(10, 10, i * 10 + j + 1)
+      plt.imshow(img_noising_sequence[i * 10 + j], cmap='gray')
+
+  plt.show()
 
 def draw_plots():
   plt.pause(0.05)
