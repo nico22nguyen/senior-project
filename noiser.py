@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-TIMESTEPS = 100
+TIMESTEPS = 200
 BETAS = tf.linspace(1e-4, 6e-2, TIMESTEPS)
 ALPHAS = 1 - BETAS
 ALPHA_BAR = tf.math.cumprod(ALPHAS, axis=0)
