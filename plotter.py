@@ -40,7 +40,7 @@ def update_losses(loss):
     b, a = np.polyfit(loss_xs, loss_ys, deg=1)
     plt.plot(loss_xs, a + b * np.array(loss_xs), label='trendline')
 
-def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, noised_at_t_minus_1, unet_noise, timestep):
+def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, unet_noise, timestep):
   global sample_fig
   # initialize sample figure/axes on first call
   if sample_fig is None:
@@ -48,6 +48,7 @@ def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, noise
 
   # switch to sample figure
   plt.figure(sample_fig_id)
+  plt.clf()
 
   # title/configuration
   sample_fig.suptitle(f'batch: {batch_num}, epoch: {epoch_num} (avg. loss = {loss})')
@@ -63,10 +64,12 @@ def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, noise
   plt.imshow(noised_at_t, cmap='gray')
   plt.title(f'image at timestep {timestep}')
 
+  """
   # show noised image at t-1
   plt.subplot(3, 3, 7)
   plt.imshow(noised_at_t_minus_1, cmap='gray')
   plt.title(f'image at timestep {timestep - 1}')
+  """
 
   # show unet generated noise
   plt.subplot(3, 3, 8)
@@ -75,7 +78,7 @@ def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, noise
 
   # show unet generated noise
   plt.subplot(3, 3, 9)
-  plt.imshow(unet_noise + noised_at_t_minus_1, cmap='gray')
+  plt.imshow(unet_noise + noised_at_t, cmap='gray')
   plt.title(f'unet prediction at timestep {timestep}')
 
 def show_sample_process(img_noising_sequence):

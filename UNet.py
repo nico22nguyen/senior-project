@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from keras.layers import Conv2D
 from keras import Model
-from noiser import TIMESTEPS, BETAS, alphas_cumulative, noise_images
+import noiser
 from plotter import update_losses, update_samples, draw_plots, activate_plots
 import layers
 
@@ -16,6 +16,7 @@ class UNet(Model):
     self.upsample_layers = []
     self.num_downsamples = num_downsamples
     self.batch_size = batch_size
+    self.image_shape = image_shape
 
     # initialize downsampling layers
     for i in range(num_downsamples):
@@ -35,7 +36,7 @@ class UNet(Model):
         layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
       ])
 
-    # intialize bottleneck layers
+    # initialize bottleneck layers
     num_filters = 2 ** (4 + self.num_downsamples)
     self.middle_conv1 = Conv2D(num_filters, 3, padding='same')
     self.middle_conv2 = Conv2D(num_filters, 3, padding='same')
@@ -85,6 +86,9 @@ class UNet(Model):
 
     # noise for image
     return x
+
+  def get_loss(self, actual, theoretical):
+    return tf.reduce_mean(tf.square(actual - theoretical))
   
   def train(self, data, epochs=5, learning_rate=8e-6, show_samples=False, show_losses=True):
     if len(data.shape) != 4:
@@ -98,17 +102,17 @@ class UNet(Model):
         original_images = data[batch : batch + self.batch_size]
 
         # generate num_batches random timesteps
-        timesteps = tf.random.uniform([len(original_images)], 1, TIMESTEPS, dtype=tf.int32)
+        timesteps = tf.random.uniform([len(original_images)], 1, noiser.TIMESTEPS, dtype=tf.int32)
 
         with tf.GradientTape() as tape:
-          (minor_noisy_images, used_noise) = noise_images(original_images, timesteps - 1)
-          (major_noisy_images, _) = noise_images(original_images, timesteps, used_noise)
+          ### (minor_noisy_images, used_noise) = noise_images(original_images, timesteps - 1)
+          (major_noisy_images, noise) = noiser.noise_images(original_images, timesteps)
 
           network_generated_noise = self(major_noisy_images, timesteps) # what was the noise given time + starting ?
-          theoretical_noise = major_noisy_images - minor_noisy_images # (this was the noise)
+          ### theoretical_noise = major_noisy_images - minor_noisy_images # (this was the noise)
 
           # get loss between predicted and actual noise
-          loss = tf.reduce_mean(tf.square(network_generated_noise - theoretical_noise))
+          loss = self.get_loss(network_generated_noise, noise)
 
         # update weights
         gradients = tape.gradient(loss, self.trainable_variables)
@@ -123,17 +127,34 @@ class UNet(Model):
 
         # show sample every 10 batches
         if show_samples and batch % (self.batch_size * 10) == 0:
-          update_samples(batch, epoch, loss, original_images[0], minor_noisy_images[0], major_noisy_images[0], network_generated_noise[0], timesteps[0])
+          update_samples(batch, epoch, loss, original_images[0], major_noisy_images[0], network_generated_noise[0], timesteps[0])
           
         # draw if we need to draw something
         if show_losses or show_samples:
           draw_plots()
 
   def sample_timestep(self, x, timestep):
+    offset = 1e-5
+    alpha_t = noiser.ALPHAS[timestep]
+    sqrt_beta_t = noiser.BETAS[timestep] ** 0.5
+    alpha_bar_t = noiser.ALPHA_BAR[timestep]
+    recip_sqrt_alpha_t = 1 / (alpha_t ** 0.5)
+
+    predicted_noise = self(x, np.array([timestep]))
+    noise_coefficient = (1 - alpha_t) / ((1 - alpha_bar_t + offset) ** 0.5)
+
+    predicted_mean = recip_sqrt_alpha_t * (x - noise_coefficient * predicted_noise)
+    if timestep == 0:
+      return predicted_mean
+
+    true_noise = tf.random.normal(shape=x.shape)
+
+    return predicted_mean + sqrt_beta_t * true_noise
+    """
     sqrt_recip_alphas = ((1 / (1. - BETAS)) ** 0.5)
 
     beta = BETAS[timestep]
-    alpha = alphas_cumulative[timestep]
+    alpha = alpha_bar[timestep]
     sqrt_recip_alpha = sqrt_recip_alphas[timestep]
 
     predicted_mean = sqrt_recip_alpha * (x - beta * self(x, np.array([timestep])) / alpha)
@@ -143,13 +164,18 @@ class UNet(Model):
     
     noise = tf.random.normal(shape=x.shape)
     return predicted_mean + beta * noise
+    """
   
   # since the UNet learns how to predict the noise, we don't call the UNet directly to sample,
   # instead we call it to produce the predicted mean, then use that mean to statistically derive the sample
-  def sample(self, shape):
-    denoised = tf.random.normal(shape=shape)
+  def sample(self, num_samples=1):
+    samples = []
+    for _ in range(num_samples):
+      w, h, c = self.image_shape
+      denoised = tf.random.normal(shape=(1, w, h, c))
 
-    for timestep in range(TIMESTEPS - 1, -1, -1):
-      denoised = self.sample_timestep(denoised, timestep)
+      for timestep in range(noiser.TIMESTEPS - 1, -1, -1):
+        denoised = self.sample_timestep(denoised, timestep)
+        samples.append(denoised)
     
-    return denoised
+    return samples

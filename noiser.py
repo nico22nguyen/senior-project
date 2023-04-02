@@ -2,27 +2,28 @@ import tensorflow as tf
 
 TIMESTEPS = 100
 BETAS = tf.linspace(1e-4, 6e-2, TIMESTEPS)
-alphas_cumulative = tf.math.cumprod(1 - BETAS, axis=0)
-# alphas_cumulative = tf.concat((tf.constant([1.]), alphas_cumulative[:-1]), axis=0)
-sqrt_alphas = alphas_cumulative ** 0.5
-sqrt_one_minus_alphas = (1 - alphas_cumulative) ** 0.5
+ALPHAS = 1 - BETAS
+ALPHA_BAR = tf.math.cumprod(ALPHAS, axis=0)
+ALPHA_BAR = tf.concat((tf.constant([1.]), ALPHA_BAR[:-1]), axis=0)
+SQRT_ALPHA_BAR = ALPHA_BAR ** 0.5
+SQRT_ONE_MINUS_ALPHA_BAR = (1 - ALPHA_BAR) ** 0.5
 
-def noise_images(images, _timesteps, starting_noise=None):
+def noise_images(images, timesteps, starting_noise=None):
   _images = tf.cast(images, tf.float32)
   if starting_noise is None:
-    random_normal = tf.random.normal(shape=_images.shape)
+    noise = tf.random.normal(shape=_images.shape)
   else:
-    random_normal = starting_noise
+    noise = starting_noise
 
   # get the alphas and one_minus_alphas for each timestep
-  selected_sqrt_alphas = tf.gather(sqrt_alphas, _timesteps)
-  selected_sqrt_one_minus_alphas = tf.gather(sqrt_one_minus_alphas, _timesteps)
+  sqrt_alpha_bar_t = tf.gather(SQRT_ALPHA_BAR, timesteps)
+  sqrt_one_minus_alpha_bar_t = tf.gather(SQRT_ONE_MINUS_ALPHA_BAR, timesteps)
 
   # modify images based on timestep
-  modified_images = tf.einsum('i,ijkl->ijkl', selected_sqrt_alphas, _images)
+  modified_images = tf.einsum('i,ijkl->ijkl', sqrt_alpha_bar_t, _images)
 
   # modify noise based on timestep
-  modified_noise = tf.einsum('i,ijkl->ijkl', selected_sqrt_one_minus_alphas, random_normal)
+  modified_noise = tf.einsum('i,ijkl->ijkl', sqrt_one_minus_alpha_bar_t, noise)
 
   # return sum and noise
-  return (modified_images + modified_noise, random_normal)
+  return (modified_images + modified_noise, noise)

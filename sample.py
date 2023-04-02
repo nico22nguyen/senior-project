@@ -1,17 +1,18 @@
-from UNet import UNet
+from medium_code import Unet #UNet import UNet
 import tensorflow as tf
 from plotter import show_sample_process
 from matplotlib import pyplot as plt
 
-model = UNet(image_shape=(28, 28, 1))
+print('instantiating model...')
+model = Unet(channels=1)# UNet(image_shape=(28, 28, 1))
 
 # fully trained mnist model
-model.load_weights('models/mnist_weights')
+print('loading weights...')
+model.load_weights('models/medium_mnist_weights').expect_partial()
 
-# give the model random noise and see if it can produce the "original image"
+"""
 partials = []
 noised_image = tf.random.normal(shape=(1, 28, 28, 1))
-
 print('restoring image...')
 for i in range(99, 0, -1):
   noised_image -= model(noised_image, tf.constant([i]))
@@ -19,10 +20,18 @@ for i in range(99, 0, -1):
 
 partials = tf.squeeze(partials)
 print('done!')
+"""
 
-# display partial restorations
+print('generating samples...')
+samples = model.sample2()
+
 print('showing results...')
-show_sample_process(partials)
-# out = model.sample((1, 28, 28, 1))
-# plt.imshow(tf.squeeze(out), cmap='gray')
+plt.ion()
+for (i, sample) in enumerate(samples):
+  plt.suptitle(f'Timestep {100 - i}')
+  plt.imshow(tf.squeeze(sample), cmap='gray')
+  plt.show()
+  plt.pause(0.01)
+  plt.close()
+  
 plt.show()
