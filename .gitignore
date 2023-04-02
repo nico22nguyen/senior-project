@@ -1,5 +1,8 @@
 # dont push data to github, too big
 data/
+.vscode/
+models/
+ddpm.gif
 
 # ignore prettier
 .prettierrc
