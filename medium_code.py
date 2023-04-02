@@ -1,26 +1,58 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+from PIL import Image
+
 import tensorflow as tf
-from tensorflow import einsum
+from tensorflow import keras, einsum
 from keras import Model, Sequential
 from keras.layers import Layer
 import keras.layers as nn
 import tensorflow_addons as tfa
+
 from einops import rearrange
+from einops.layers.tensorflow import Rearrange
 from functools import partial
 from inspect import isfunction
 
-import math
-import noiser
-import numpy as np
-import noiser
-from PIL import Image
+timesteps = 200
+
+# create a fixed beta schedule
+beta = np.linspace(0.0001, 0.02, timesteps)
+
+# this will be used as discussed in the reparameterization trick
+alpha = 1 - beta
+alpha_bar = np.cumprod(alpha, 0)
+alpha_bar = np.concatenate((np.array([1.]), alpha_bar[:-1]), axis=0)
+sqrt_alpha_bar = np.sqrt(alpha_bar)
+one_minus_sqrt_alpha_bar = np.sqrt(1-alpha_bar)
+
+# this function will help us set the RNG key for Numpy
+def set_key(key):
+    np.random.seed(key)
+
+# this function will add noise to the input as per the given timestamp
+def forward_noise(key, x_0, t):
+    set_key(key)
+    noise = np.random.normal(size=x_0.shape)
+    reshaped_sqrt_alpha_bar_t = np.reshape(np.take(sqrt_alpha_bar, t), (-1, 1, 1, 1))
+    reshaped_one_minus_sqrt_alpha_bar_t = np.reshape(np.take(one_minus_sqrt_alpha_bar, t), (-1, 1, 1, 1))
+    noisy_image = reshaped_sqrt_alpha_bar_t  * x_0 + reshaped_one_minus_sqrt_alpha_bar_t  * noise
+    return noisy_image, noise
+
+# this function will be used to create sample timestamps between 0 & T
+def generate_timestamp(key, num):
+    set_key(key)
+    return tf.random.uniform(shape=[num], minval=0, maxval=timesteps, dtype=tf.int32)
+    
+
 # helpers functions
 MNIST_DIMS = (32, 32, 1)
 
 def preprocess(x):
-    shifted = tf.cast(x, tf.float32) / 127.5 - 1
-    return tf.image.resize(tf.expand_dims(shifted, axis=-1), (32, 32))
-
-
+    normalized = tf.cast(x, tf.float32) / 127.5 - 1
+    return tf.image.resize(tf.expand_dims(normalized, axis=-1), (32, 32))
 
 def exists(x):
     return x is not None
@@ -32,8 +64,6 @@ def default(val, d):
     return d() if isfunction(d) else d
 
 # We will use this to convert timestamps to time encodings
-
-
 class SinusoidalPosEmb(Layer):
     def __init__(self, dim, max_positions=10000):
         super(SinusoidalPosEmb, self).__init__()
@@ -351,26 +381,11 @@ class Unet(Model):
         x = self.final_conv(x)
         return x
     
-    def set_key(self, key):
-      np.random.seed(key)
-    
-    def forward_noise(self, key, x_0, t):
-      self.set_key(key)
-      noise = np.random.normal(size=x_0.shape)
-      reshaped_sqrt_alpha_bar_t = np.reshape(np.take(noiser.SQRT_ALPHA_BAR, t), (-1, 1, 1, 1))
-      reshaped_one_minus_sqrt_alpha_bar_t = np.reshape(np.take(noiser.SQRT_ONE_MINUS_ALPHA_BAR, t), (-1, 1, 1, 1))
-      noisy_image = reshaped_sqrt_alpha_bar_t  * x_0 + reshaped_one_minus_sqrt_alpha_bar_t  * noise
-      return noisy_image, noise
-
-    def generate_timestamp(self, key, num):
-        self.set_key(key)
-        return tf.random.uniform(shape=[num], minval=0, maxval=noiser.TIMESTEPS, dtype=tf.int32)
-    
     def train_step(self, batch, opt):
       rng, tsrng = np.random.randint(0, 100000, size=(2,))
-      timestep_values = self.generate_timestamp(tsrng, batch.shape[0])
+      timestep_values = generate_timestamp(tsrng, batch.shape[0])
 
-      noised_image, noise = self.forward_noise(rng, batch, timestep_values)
+      noised_image, noise = forward_noise(rng, batch, timestep_values)
       with tf.GradientTape() as tape:
           prediction = self(noised_image, timestep_values)
           
@@ -399,48 +414,17 @@ class Unet(Model):
           avg = np.mean(losses)
           print(f"Average loss for epoch {e}/{epochs}: {avg}")
     
-    def sample_timestep(self, x, timestep):
-      offset = 1e-5
-      alpha_t = noiser.ALPHAS[timestep]
-      sqrt_beta_t = noiser.BETAS[timestep] ** 0.5
-      alpha_bar_t = noiser.ALPHA_BAR[timestep]
-      recip_sqrt_alpha_t = 1 / (alpha_t ** 0.5)
-
-      predicted_noise = self(x, np.array([timestep]))
-      noise_coefficient = (1 - alpha_t) / ((1 - alpha_bar_t + offset) ** 0.5)
-
-      predicted_mean = recip_sqrt_alpha_t * (x - noise_coefficient * predicted_noise)
-      if timestep == 0:
-        return predicted_mean
-
-      true_noise = tf.random.normal(shape=x.shape)
-
-      return predicted_mean + sqrt_beta_t * true_noise
-  
-    # since the UNet learns how to predict the noise, we don't call the UNet directly to sample,
-    # instead we call it to produce the predicted mean, then use that mean to statistically derive the sample
-    def sample(self, num_samples=1):
-      samples = []
-      for _ in range(num_samples):
-        w, h, c = MNIST_DIMS
-        denoised = tf.random.normal(shape=(1, w, h, c))
-
-        for timestep in range(noiser.TIMESTEPS - 1, -1, -1):
-          denoised = self.sample_timestep(denoised, timestep)
-          samples.append(denoised)
-      
-      return samples
-    
     def get_loss(self, actual, theoretical):
       return tf.reduce_mean(tf.square(actual - theoretical))
+    
     def ddpm(self, x_t, pred_noise, t):
-      alpha_t = np.take(noiser.ALPHAS, t)
-      alpha_t_bar = np.take(noiser.ALPHA_BAR, t)
+      alpha_t = np.take(alpha, t)
+      alpha_t_bar = np.take(alpha_bar, t)
 
       eps_coef = (1 - alpha_t) / (1 - alpha_t_bar) ** .5
       mean = (1 / (alpha_t ** .5)) * (x_t - eps_coef * pred_noise)
 
-      var = np.take(noiser.BETAS, t)
+      var = np.take(beta, t)
       z = np.random.normal(size=x_t.shape)
 
       return mean + (var ** .5) * z
@@ -465,13 +449,13 @@ class Unet(Model):
         img.save(fp=path, format='GIF', append_images=imgs)
 
 
-    def sample2(self):
+    def sample(self):
       x = tf.random.normal((1,32,32,1))
       img_list = []
       img_list.append(np.squeeze(np.squeeze(x, 0),-1))
 
-      for i in range(noiser.TIMESTEPS-1):
-          t = np.expand_dims(np.array(noiser.TIMESTEPS-i-1, np.int32), 0)
+      for i in range(timesteps-1):
+          t = np.expand_dims(np.array(timesteps-i-1, np.int32), 0)
           pred_noise = self(x, t)
           x = self.ddpm(x, pred_noise, t)
           img_list.append(np.squeeze(np.squeeze(x, 0),-1))
