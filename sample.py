@@ -9,7 +9,7 @@ model = Unet(channels=1)# UNet(image_shape=(28, 28, 1))
 
 # fully trained mnist model
 print('loading weights...')
-model.load_weights('models/medium_mnist_weights').expect_partial()
+model.load_weights('models/medium_mnist_weights')
 
 """
 partials = []
@@ -24,15 +24,20 @@ print('done!')
 """
 
 print('generating samples...')
-samples = model.sample()
+progressions, final = model.sample()
 
 print('showing results...')
 plt.ion()
-for (i, sample) in enumerate(samples):
+for (i, sample) in enumerate(progressions):
   plt.suptitle(f'Timestep {noiser.TIMESTEPS - i}')
   plt.imshow(tf.squeeze(sample), cmap='gray')
   plt.show()
   plt.pause(0.01)
   plt.close()
-  
+plt.ioff()
+
+print('final image:')
+plt.figure()
+plt.suptitle('Final Image')
+plt.imshow(tf.squeeze(final), cmap='gray')
 plt.show()

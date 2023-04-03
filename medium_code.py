@@ -459,4 +459,5 @@ class Unet(Model):
 
       self.save_gif(img_list + ([img_list[-1]] * 100), "ddpm.gif")
 
-      return img_list
+      final = np.array(np.clip((x[0] + 1) * 127.5, 0, 255), np.uint8)
+      return img_list, final
