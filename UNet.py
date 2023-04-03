@@ -43,7 +43,7 @@ class UNet(Model):
 
     self.optimizer = tf.keras.optimizers.Adam(learning_rate=8e-6)
 
-  def call(self, inputs, batch_timestep_list):
+  def call(self, inputs, batch_timestep_list): # network(0) -> 99 + ? = 100
     x = inputs
 
     # initialize skip connections list
@@ -92,11 +92,13 @@ class UNet(Model):
   def get_loss(self, actual, theoretical):
     return tf.reduce_mean(tf.square(actual - theoretical))
   
-  def train(self, data, epochs=5, show_samples=False, show_losses=True):
+  def train(self, data, epochs=5, learning_rate=8e-6, show_samples=False, show_losses=True):
     if len(data.shape) != 4:
       raise ValueError('data must be a 4-tuple in the form of (num_samples, height, width, channels)')
     if show_losses or show_samples:
       activate_plots()
+       
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
 
     for epoch in range(epochs):
       for batch in range (0, len(data), self.batch_size):
@@ -106,9 +108,10 @@ class UNet(Model):
         # generate num_batches random timesteps
         timesteps = tf.random.uniform([len(original_images)], 1, noiser.TIMESTEPS, dtype=tf.int32)
 
+        # generate noisy images + noise
+        ### (minor_noisy_images, used_noise) = noise_images(original_images, timesteps - 1)
+        (major_noisy_images, noise) = noiser.noise_images(original_images, timesteps)
         with tf.GradientTape() as tape:
-          ### (minor_noisy_images, used_noise) = noise_images(original_images, timesteps - 1)
-          (major_noisy_images, noise) = noiser.noise_images(original_images, timesteps)
 
           network_generated_noise = self(major_noisy_images, timesteps) # what was the noise given time + starting ?
           ### theoretical_noise = major_noisy_images - minor_noisy_images # (this was the noise)
@@ -118,7 +121,7 @@ class UNet(Model):
 
         # update weights
         gradients = tape.gradient(loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+        optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         
         print(f'epoch: {epoch}, batch: {batch}, loss: {loss}')
 
