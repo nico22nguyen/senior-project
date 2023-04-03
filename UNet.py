@@ -43,7 +43,7 @@ class UNet(Model):
 
     self.optimizer = tf.keras.optimizers.Adam(learning_rate=8e-6)
 
-  def call(self, inputs, batch_timestep_list): # network(0) -> 99 + ? = 100
+  def call(self, inputs, batch_timestep_list):
     x = inputs
 
     # initialize skip connections list
