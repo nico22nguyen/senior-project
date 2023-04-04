@@ -13,12 +13,7 @@ IMAGE_SHAPE = (32, 32, 1)
 # unet __init__ definition from medium
 # call, train, sample, save are custom
 class UNet(Model):
-  def __init__(self,
-    dim=64,
-    dim_mults=(1, 2, 4, 8),
-    channels=3,
-    resnet_block_groups=8,
-  ):
+  def __init__(self, dim=64, dim_mults=(1, 2, 4, 8), channels=3, resnet_block_groups=8):
     super().__init__()
     
     # determine dimensions
@@ -36,10 +31,10 @@ class UNet(Model):
     time_dim = dim * 4
     
     self.time_mlp = layers.Sequential([
-        layers.SinusoidalPosEmb(dim),
-        nn.Dense(units=time_dim),
-        layers.GELU(),
-        nn.Dense(units=time_dim)
+      layers.SinusoidalPosEmb(dim),
+      nn.Dense(units=time_dim),
+      layers.GELU(),
+      nn.Dense(units=time_dim)
     ])
     
     # layers
@@ -131,7 +126,6 @@ class UNet(Model):
     # noise for image
     return x
   
-
   def get_loss(self, actual, theoretical):
     return tf.reduce_mean(tf.square(actual - theoretical))
   
