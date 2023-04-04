@@ -140,7 +140,8 @@ class UNet(Model):
   def get_loss(self, actual, theoretical):
     return tf.reduce_mean(tf.square(actual - theoretical))
   
-  def train(self, data, epochs=5, batch_size=64, learning_rate=8e-6, show_samples=False, show_losses=False):
+  # NOTE: my GPU can't handle batch_size >= 64, it runs out of memory
+  def train(self, data, epochs=5, batch_size=48, learning_rate=8e-6, show_samples=False, show_losses=False):
     if len(data.shape) != 4:
       raise ValueError('data must be a 4-tuple in the form of (num_samples, height, width, channels)')
     if show_losses or show_samples:
