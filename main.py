@@ -1,7 +1,11 @@
 import keras.datasets.mnist as mnist
-from medium_code import preprocess
+from Diffusion_test import preprocess, ddpm
 from UNet import UNet
 import numpy as np
+import tensorflow as tf
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import noiser
 
 # ask user if they want to save the weights
 def ask_to_save():
@@ -24,21 +28,32 @@ elif network_code == '4':
 
 # normalize to [-1, 1]
 # data = 2 * (data / 255) - 1
-data = preprocess(data)
+data = preprocess(data, y=None)
 
 # add channel dimension if necessary
 if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
 model = UNet(image_shape=data[0].shape, batch_size=64)
-try:
-  model.train(data, show_samples=True)
-except KeyboardInterrupt:
-  ask_to_save()
-  exit()
+model.train(data, show_samples=False, show_losses=False, epochs=5)
 
-model.save_weights('models/medium_mnist_weights')# ask_to_save()
+plt.ion()
+while True:
+  x = tf.random.normal((1,32,32,1))
+  img_list = []
+  img_list.append(np.squeeze(np.squeeze(x, 0),-1))
 
+  for i in tqdm(range(noiser.TIMESTEPS-1)):
+    t = np.expand_dims(np.array(noiser.TIMESTEPS-i-1, np.int32), 0)
+    pred_noise = model(x, t)
+    x = ddpm(x, pred_noise, t)
+    img_list.append(np.squeeze(np.squeeze(x, 0),-1))
+
+    plt.suptitle(f'Timestep {noiser.TIMESTEPS - i}')
+    plt.imshow(np.array(np.clip((x[0] + 1) * 127.5, 0, 255)), cmap='gray')
+    plt.show()
+    plt.pause(0.01)
+    plt.clf()
 """
 denoised = tf.random.normal(shape=x_train[0].shape)
 fig, axs = plt.subplots(10, 10)
