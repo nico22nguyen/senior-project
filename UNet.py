@@ -179,21 +179,6 @@ class UNet(Model):
     true_noise = tf.random.normal(shape=x.shape)
 
     return predicted_mean + sqrt_beta_t * true_noise
-    """
-    sqrt_recip_alphas = ((1 / (1. - BETAS)) ** 0.5)
-
-    beta = BETAS[timestep]
-    alpha = alpha_bar[timestep]
-    sqrt_recip_alpha = sqrt_recip_alphas[timestep]
-
-    predicted_mean = sqrt_recip_alpha * (x - beta * self(x, np.array([timestep])) / alpha)
-
-    if timestep == 0:
-      return predicted_mean
-    
-    noise = tf.random.normal(shape=x.shape)
-    return predicted_mean + beta * noise
-    """
   
   # since the UNet learns how to predict the noise, we don't call the UNet directly to sample,
   # instead we call it to produce the predicted mean, then use that mean to statistically derive the sample
