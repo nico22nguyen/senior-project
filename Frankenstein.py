@@ -14,20 +14,16 @@ IMAGE_SHAPE = (32, 32, 1)
 class UNet(Model):
   def __init__(self,
     dim=64,
-    init_dim=None,
-    out_dim=None,
     dim_mults=(1, 2, 4, 8),
     channels=3,
     resnet_block_groups=8,
-    learned_variance=False,
-    sinusoidal_cond_mlp=True
   ):
-    super(UNet, self).__init__()
+    super().__init__()
     
     # determine dimensions
     self.channels = channels
     
-    init_dim = layers.default(init_dim, dim // 3 * 2)
+    init_dim = dim // 3 * 2
     self.init_conv = nn.Conv2D(filters=init_dim, kernel_size=7, strides=1, padding='SAME')
     
     dims = [init_dim, *map(lambda m: dim * m, dim_mults)]
@@ -37,7 +33,6 @@ class UNet(Model):
     
     # time embeddings
     time_dim = dim * 4
-    self.sinusoidal_cond_mlp = sinusoidal_cond_mlp
     
     self.time_mlp = layers.Sequential([
         layers.SinusoidalPosEmb(dim),
@@ -76,8 +71,7 @@ class UNet(Model):
         layers.Upsample(dim_in) if not is_last else layers.Identity()
       ])
     
-    default_out_dim = channels * (1 if not learned_variance else 2)
-    self.out_dim = layers.default(out_dim, default_out_dim)
+    self.out_dim = channels
     
     self.final_conv = layers.Sequential([
       block_klass(dim * 2, dim),
@@ -223,7 +217,6 @@ class UNet(Model):
     out = []
     out.append(self.channels)
     out.append(self.init_conv)
-    out.append(self.sinusoidal_cond_mlp)
     out.append(self.time_mlp)
     out.append(self.downs)
     out.append(self.mid_block1)
@@ -235,14 +228,13 @@ class UNet(Model):
     pickle.dump(out, open(filepath, 'wb'))
 
   def load_weights(self, filepath):
-    save_arr = pickle.load(open(filepath, 'rb'))
-    self.channels = save_arr[0]
-    self.init_conv = save_arr[1]
-    self.sinusoidal_cond_mlp = save_arr[2]
-    self.time_mlp = save_arr[3]
-    self.downs = save_arr[4]
-    self.mid_block1 = save_arr[5]
-    self.mid_attn = save_arr[6]
-    self.mid_block2 = save_arr[7]
-    self.ups = save_arr[8]
-    self.final_conv = save_arr[9]
+    save_arr: list = pickle.load(open(filepath, 'rb'))
+    self.final_conv = save_arr.pop()
+    self.ups = save_arr.pop()
+    self.mid_block2 = save_arr.pop()
+    self.mid_attn = save_arr.pop()
+    self.mid_block1 = save_arr.pop()
+    self.downs = save_arr.pop()
+    self.time_mlp = save_arr.pop()
+    self.init_conv = save_arr.pop()
+    self.channels = save_arr.pop()
