@@ -2,8 +2,9 @@ import keras.layers as layers
 import tensorflow_addons as tfa
 import tensorflow as tf
 import numpy as np
+import noiser
 
-range = np.linspace(0,np.pi,100)
+range = np.linspace(0,np.pi,noiser.TIMESTEPS)
 embeddings= tf.stack((tf.math.sin(range), tf.math.cos(range)))
 
 # couldn't get attention to work

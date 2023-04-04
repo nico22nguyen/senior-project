@@ -1,2 +1,2 @@
-model_checkpoint_path: "medium_mnist_weights"
-all_model_checkpoint_paths: "medium_mnist_weights"
+model_checkpoint_path: "current_weights"
+all_model_checkpoint_paths: "current_weights"

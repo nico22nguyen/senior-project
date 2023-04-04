@@ -1,15 +1,20 @@
-from medium_code import Unet #UNet import UNet
+# from medium_code import Unet #UNet import UNet
 import tensorflow as tf
+import keras
 from plotter import show_sample_process
 from matplotlib import pyplot as plt
 import noiser
+from Diffusion_test import Unet, timesteps, ddpm
+import numpy as np
+from tqdm import tqdm
 
 print('instantiating model...')
-model = Unet(channels=1)# UNet(image_shape=(28, 28, 1))
+unet = Unet(channels=1)# UNet(image_shape=(28, 28, 1))
 
 # fully trained mnist model
 print('loading weights...')
-model.load_weights('models/medium_mnist_weights')
+unet.load_weights('models/current_weights')
+#model = keras.models.load_model('models/medium_mnist_weights')
 
 """
 partials = []
@@ -21,14 +26,28 @@ for i in range(99, 0, -1):
 
 partials = tf.squeeze(partials)
 print('done!')
+
+progressions, final = model.sample()
 """
 
-print('generating samples...')
-progressions, final = model.sample()
 
+print('generating samples...')
+x = tf.random.normal((1,32,32,1))
+img_list = []
+img_list.append(np.squeeze(np.squeeze(x, 0),-1))
+
+for i in tqdm(range(timesteps-1)):
+    t = np.expand_dims(np.array(timesteps-i-1, np.int32), 0)
+    pred_noise = unet(x, t)
+    x = ddpm(x, pred_noise, t)
+    img_list.append(np.squeeze(np.squeeze(x, 0),-1))
+
+
+final = np.array(np.clip((x[0] + 1) * 127.5, 0, 255), np.uint8)
+plt.show()
 print('showing results...')
 plt.ion()
-for (i, sample) in enumerate(progressions):
+for (i, sample) in enumerate(img_list):
   plt.suptitle(f'Timestep {noiser.TIMESTEPS - i}')
   plt.imshow(tf.squeeze(sample), cmap='gray')
   plt.show()

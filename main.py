@@ -1,5 +1,6 @@
 import keras.datasets.mnist as mnist
-from medium_code import Unet, preprocess # UNet import UNet
+from medium_code import preprocess
+from UNet import UNet
 import numpy as np
 
 # ask user if they want to save the weights
@@ -29,9 +30,9 @@ data = preprocess(data)
 if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
-model = Unet(channels=1) #UNet(image_shape=data[0].shape, batch_size=64)
+model = UNet(image_shape=data[0].shape, batch_size=64)
 try:
-  model.train(data)
+  model.train(data, show_samples=True)
 except KeyboardInterrupt:
   ask_to_save()
   exit()
