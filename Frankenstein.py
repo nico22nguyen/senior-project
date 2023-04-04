@@ -172,7 +172,7 @@ class UNet(Model):
         gradients = tape.gradient(loss, self.trainable_variables)
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         
-        print(f'epoch: {epoch + 1}, batch: {(batch // batch_size) + 1} / {num_batches}, loss: {loss}')
+        print(f'epoch: {epoch + 1} / {epochs}, batch: {(batch // batch_size) + 1} / {num_batches}, loss: {loss}')
 
         # show losses every batch
         if show_losses and batch:
