@@ -6,6 +6,7 @@ from functools import partial
 import plotter
 import noiser
 import medium_code as layers
+import numpy as np
 
 IMAGE_SHAPE = (32, 32, 1)
 
@@ -135,7 +136,7 @@ class UNet(Model):
     return tf.reduce_mean(tf.square(actual - theoretical))
   
   # NOTE: my GPU can't handle batch_size >= 64, it runs out of memory
-  def train(self, data, epochs=5, batch_size=48, learning_rate=8e-6, show_samples=False, show_losses=False):
+  def train(self, data: tf.Tensor, epochs=5, batch_size=48, learning_rate=8e-6, show_samples=False, show_losses=False):
     if len(data.shape) != 4:
       raise ValueError('data must be a 4-tuple in the form of (num_samples, height, width, channels)')
     if show_losses or show_samples:
@@ -144,7 +145,8 @@ class UNet(Model):
     optimizer = tf.keras.optimizers.Adam(learning_rate)
 
     for epoch in range(epochs):
-      num_batches = (len(data) // batch_size) + 1
+      progress_bar = tf.keras.utils.Progbar(data.shape[0] // batch_size)
+      losses = []
       for batch in range (0, len(data), batch_size):
         # select a batch of images
         original_images = data[batch : batch + batch_size]
@@ -167,7 +169,8 @@ class UNet(Model):
         gradients = tape.gradient(loss, self.trainable_variables)
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         
-        print(f'epoch: {epoch + 1} / {epochs}, batch: {(batch // batch_size) + 1} / {num_batches}, loss: {loss}')
+        losses.append(loss)
+        progress_bar.update(batch // batch_size, values=[("loss", loss)])
 
         # show losses every batch
         if show_losses and batch:
@@ -180,6 +183,9 @@ class UNet(Model):
         # draw if we need to draw something
         if show_losses or show_samples:
           plotter.draw_plots()
+
+      # show avg loss for each epoch
+      print(f'Epoch {epoch + 1} / {epochs} - Average Loss: {np.mean(losses):.4f}')
 
   def sample_timestep(self, x: tf.Tensor, timestep):
     offset = 1e-5
