@@ -5,6 +5,7 @@ from keras import Model
 import noiser
 from plotter import update_losses, update_samples, draw_plots, activate_plots
 import layers
+import pickle
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
@@ -43,7 +44,29 @@ class UNet(Model):
 
     self.optimizer = tf.keras.optimizers.Adam(learning_rate=8e-6)
 
-  def call(self, inputs, batch_timestep_list): # network(0) -> 99 + ? = 100
+  def save_weights(self, filepath, overwrite=True, save_format=None, options=None):
+    out = []
+    out.append(self.downsample_layers)
+    out.append(self.upsample_layers)
+    out.append(self.num_downsamples)
+    out.append(self.batch_size)
+    out.append(self.image_shape)
+    out.append(self.middle_conv1)
+    out.append(self.middle_conv2)
+
+    pickle.dump(out, open(filepath, 'wb'))
+
+  def load_weights(self, filepath):
+    save_arr = pickle.load(open(filepath, 'rb'))
+    self.downsample_layers = save_arr[0]
+    self.upsample_layers = save_arr[1]
+    self.num_downsamples = save_arr[2]
+    self.batch_size = save_arr[3]
+    self.image_shape = save_arr[4]
+    self.middle_conv1 = save_arr[5]
+    self.middle_conv2 = save_arr[6]
+
+  def call(self, inputs, batch_timestep_list):
     x = inputs
 
     # initialize skip connections list
@@ -85,6 +108,7 @@ class UNet(Model):
         x = upsample(x, padded_1, padded_2)
       else:
         x = upsample(x)
+      print(x[0, 0, 0, 0])
 
     # noise for image
     return x
