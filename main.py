@@ -1,11 +1,15 @@
 import keras.datasets.mnist as mnist
-from Diffusion_test import preprocess, ddpm
+from Diffusion_test import ddpm
 from UNet import UNet
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import noiser
+
+def preprocess(x):
+  normalized = tf.cast(x, tf.float32) / 127.5 - 1
+  return tf.image.resize(tf.expand_dims(normalized, axis=-1), (32, 32))
 
 # ask user if they want to save the weights
 def ask_to_save():
@@ -28,7 +32,7 @@ elif network_code == '4':
 
 # normalize to [-1, 1]
 # data = 2 * (data / 255) - 1
-data = preprocess(data, y=None)
+data = preprocess(data)
 
 # add channel dimension if necessary
 if len(data.shape) != 4:
