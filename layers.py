@@ -46,9 +46,10 @@ class Upsample(layers.Layer):
   def __init__(self, filters):
     super().__init__()
     self.filters = filters
+    self.conv_transpose = layers.Conv2DTranspose(filters, 1, 2)
 
   def call(self, inputs, padded_1=False, padded_2=False):
-    x = layers.Conv2DTranspose(self.filters, 1, 2)(inputs)
+    x = self.conv_transpose(inputs)
 
     # remove padding added in downsampling layer if applicable
     if padded_1:
