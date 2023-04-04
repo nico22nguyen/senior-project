@@ -11,7 +11,7 @@ IMAGE_SHAPE = (32, 32, 1)
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
-  def __init__(self, channel_increase_per_downsample=64, dim_mults=(1, 2, 4, 8), channels=3, resnet_block_groups=8):
+  def __init__(self, channel_increase_per_downsample=64, dim_multipliers=(1, 2, 4, 8), channels=3, resnet_block_groups=8):
     super().__init__()
     
     self.channels = channels
@@ -22,7 +22,7 @@ class UNet(Model):
     self.init_conv = Conv2D(init_dim, 7, padding='same')
 
     dims = [init_dim]
-    for multiplier in dim_mults:
+    for multiplier in dim_multipliers:
       dims.append(channel_increase_per_downsample * multiplier)
 
     dim_in_dim_out = list(zip(dims[:-1], dims[1:]))
