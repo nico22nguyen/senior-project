@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from keras.layers import Conv2D
-from keras import Model
+from keras.layers import Conv2D, Dense
+from keras import Model, Sequential
 import noiser
 import plotter
 import layers
@@ -11,81 +11,92 @@ IMAGE_SHAPE = (32, 32, 1)
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
-  def __init__(self, image_shape, num_downsamples=3, batch_size=64):
+  def __init__(self, channel_increase_per_downsample=64, dim_mults=(1, 2, 4, 8), channels=3, resnet_block_groups=8):
     super().__init__()
-    if len(image_shape) != 3:
-      raise ValueError('image_shape must be a 3-tuple in the form of (height, width, channels)')
+    
+    self.channels = channels
     self.downsample_layers = []
     self.upsample_layers = []
-    self.num_downsamples = num_downsamples
-    self.batch_size = batch_size
-    self.image_shape = image_shape
+
+    init_dim = channel_increase_per_downsample // 3 * 2
+    self.init_conv = Conv2D(init_dim, 7, padding='same')
+
+    dims = [init_dim]
+    for multiplier in dim_mults:
+      dims.append(channel_increase_per_downsample * multiplier)
+
+    dim_in_dim_out = list(zip(dims[:-1], dims[1:]))
+
+    time_dim = channel_increase_per_downsample * 4
+
+    self.time_mlp = Sequential([
+      layers.SinusoidalPosEmb(channel_increase_per_downsample),
+      Dense(time_dim),
+      layers.GELU(),
+      Dense(time_dim)
+    ])
 
     # initialize downsampling layers
-    for i in range(num_downsamples):
-      num_filters = 2 ** (5 + i)
+    for i, (dim_in, dim_out) in enumerate(dim_in_dim_out):
+      is_last_layer = i == len(dim_in_dim_out) - 1
+
       self.downsample_layers.append([
-        layers.Conv2DWithTime(num_filters, 3),
+        layers.ResnetBlock(dim_in, dim_out, time_dim),
+        layers.ResnetBlock(dim_out, dim_out, time_dim),
         layers.Residual(layers.AttentionAndGroupNorm()),
-        layers.Downsample() if i < num_downsamples - 1 else layers.Identity()
+        layers.Downsample() if not is_last_layer else layers.Identity()
       ])
+
+    mid_dim = dims[-1] # highest dimension (number of channels)
+    self.mid_block1 = layers.ResnetBlock(mid_dim, mid_dim, time_emb_dim=time_dim)
+    # self.mid_attn = layers.Residual(layers.PreNorm(mid_dim, layers.Attention(mid_dim)))
+    self.mid_block2 = layers.ResnetBlock(mid_dim, mid_dim, time_emb_dim=time_dim)
     
     # initialize upsampling layers
-    for i in range(num_downsamples):
-      num_filters = image_shape[-1] if num_downsamples - i == 1 else 2 ** (3 + num_downsamples - i)
+    for i, (dim_in, dim_out) in enumerate(reversed(dim_in_dim_out[1:])):
       self.upsample_layers.append([
-        layers.Conv2DTransposeWithTime(num_filters, 3),
+        layers.ResnetBlock(dim_out * 2, dim_in, time_dim),
+        layers.ResnetBlock(dim_in, dim_in, time_dim),
         layers.Residual(layers.AttentionAndGroupNorm()),
-        layers.Upsample(num_filters) if i < num_downsamples - 1 else layers.Identity()
+        layers.Upsample(dim_in)
       ])
-
-    # initialize bottleneck layers
-    num_filters = 2 ** (4 + self.num_downsamples)
-    self.middle_conv1 = Conv2D(num_filters, 3, padding='same')
-    self.middle_conv2 = Conv2D(num_filters, 3, padding='same')
+      
+    self.final_channel_dim = channels
+    self.final_resnet = layers.ResnetBlock(channel_increase_per_downsample * 2, channel_increase_per_downsample)
+    self.final_conv = Conv2D(channels, 1, padding='same')
 
   def call(self, inputs, batch_timestep_list):
-    x = inputs
+    x = self.init_conv(inputs)
+    time_embedding = self.time_mlp(batch_timestep_list)
 
     # initialize skip connections list
     skip_connections = []
 
-    # initialize dimension paddings list, used for maintaining image shape through upsamples/downsamples
-    dim_paddings = []
-
     # call downsampling layers
-    for i, [conv, attention, downsample] in enumerate(self.downsample_layers):
-      x = conv(x, batch_timestep_list)
+    for [conv1, conv2, attention, downsample] in self.downsample_layers:
+      x = conv1(x, time_embedding)
+      x = conv2(x, time_embedding)
       x = attention(x)
       skip_connections.append(x)
-
-      # if dimensions are odd, they will be padded in the downsampling layer.
-      # We need to keep track of this so that we can remove the padding in the upsampling layer
-      padded_dim1 = x.shape[1] % 2 == 1
-      padded_dim2 = x.shape[2] % 2 == 1
-      if i < self.num_downsamples - 1:
-        dim_paddings.append([padded_dim1, padded_dim2])
-
       x = downsample(x)
 
     # bottleneck
-    x = self.middle_conv1(x)
-    # attention not working yet
-    # x = layers.Attention()(x)
-    x = self.middle_conv2(x)
+    x = self.mid_block1(x, time_embedding)
+    ### x = self.mid_attn(x) Attention not working yet
+    x = self.mid_block2(x, time_embedding)
 
     # call upsampling layers
-    for [conv, attention, upsample] in self.upsample_layers:
-      x = x + skip_connections.pop()
-      x = conv(x, batch_timestep_list)
+    for [conv1, conv2, attention, upsample] in self.upsample_layers:
+      x = x + skip_connections.pop() # maybe use tf.concat axis=-1 here instead
+      x = conv1(x, time_embedding)
+      x = conv2(x, time_embedding)
       x = attention(x)
+      x = upsample(x)
 
-      # undo padding from downsampling if necessary
-      if len(dim_paddings) > 0:
-        padded_1, padded_2 = dim_paddings.pop()
-        x = upsample(x, padded_1, padded_2)
-      else:
-        x = upsample(x)
+    # final convolutions
+    x = x + skip_connections.pop()
+    x = self.final_resnet(x)
+    x = self.final_conv(x)
 
     # noise for image
     return x
@@ -112,12 +123,9 @@ class UNet(Model):
         timesteps = tf.random.uniform([len(original_images)], 1, noiser.TIMESTEPS, dtype=tf.int32)
 
         # generate noisy images + noise
-        ### (minor_noisy_images, used_noise) = noise_images(original_images, timesteps - 1)
-        (major_noisy_images, noise) = noiser.noise_images(original_images, timesteps)
+        (noised_images, noise) = noiser.noise_images(original_images, timesteps)
         with tf.GradientTape() as tape:
-
-          network_generated_noise = self(major_noisy_images, timesteps) # what was the noise given time + starting ?
-          ### theoretical_noise = major_noisy_images - minor_noisy_images # (this was the noise)
+          network_generated_noise = self(noised_images, timesteps)
 
           # get loss between predicted and actual noise
           loss = self.get_loss(network_generated_noise, noise)
@@ -135,7 +143,7 @@ class UNet(Model):
 
         # show sample every 10 batches
         if show_samples and batch % (batch_size * 10) == 0:
-          plotter.update_samples(batch, epoch, loss, original_images[0], major_noisy_images[0], network_generated_noise[0], timesteps[0])
+          plotter.update_samples(batch, epoch, loss, original_images[0], noised_images[0], network_generated_noise[0], timesteps[0])
           
         # draw if we need to draw something
         if show_losses or show_samples:
@@ -178,23 +186,27 @@ class UNet(Model):
   
   def save_weights(self, filepath, overwrite=True, save_format=None, options=None):
     out = []
+    out.append(self.channels)
     out.append(self.downsample_layers)
     out.append(self.upsample_layers)
-    out.append(self.num_downsamples)
-    out.append(self.batch_size)
-    out.append(self.image_shape)
-    out.append(self.middle_conv1)
-    out.append(self.middle_conv2)
+    out.append(self.init_conv)
+    out.append(self.time_mlp)
+    out.append(self.mid_block1)
+    out.append(self.mid_block2)
+    out.append(self.final_resnet)
+    out.append(self.final_conv)
 
     pickle.dump(out, open(filepath, 'wb'))
 
   def load_weights(self, filepath):
-    save_arr = pickle.load(open(filepath, 'rb'))
+    save_arr: list = pickle.load(open(filepath, 'rb'))
     
-    self.downsample_layers = save_arr[0]
-    self.upsample_layers = save_arr[1]
-    self.num_downsamples = save_arr[2]
-    self.batch_size = save_arr[3]
-    self.image_shape = save_arr[4]
-    self.middle_conv1 = save_arr[5]
-    self.middle_conv2 = save_arr[6]
+    self.final_conv = save_arr.pop()
+    self.final_resnet = save_arr.pop()
+    self.mid_block2 = save_arr.pop()
+    self.mid_block1 = save_arr.pop()
+    self.time_mlp = save_arr.pop()
+    self.init_conv = save_arr.pop()
+    self.upsample_layers = save_arr.pop()
+    self.downsample_layers = save_arr.pop()
+    self.channels = save_arr.pop()

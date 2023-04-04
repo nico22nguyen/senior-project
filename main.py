@@ -35,7 +35,7 @@ data = preprocess(data)
 if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
-model = UNet(image_shape=data[0].shape, batch_size=64)
+model = UNet(channels=1)
 model.train(data, show_samples=False, show_losses=False, epochs=5)
 model.save_weights('models/custom.pkl')
 
