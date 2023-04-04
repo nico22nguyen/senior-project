@@ -7,9 +7,9 @@ from PIL import Image
 
 import tensorflow as tf
 from tensorflow import keras, einsum
-from tensorflow.keras import Model, Sequential
-from tensorflow.keras.layers import Layer
-import tensorflow.keras.layers as nn
+from keras import Model, Sequential
+from keras.layers import Layer
+import keras.layers as nn
 import tensorflow_addons as tfa
 import tensorflow_datasets as tfds
 
