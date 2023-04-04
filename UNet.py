@@ -108,7 +108,6 @@ class UNet(Model):
         x = upsample(x, padded_1, padded_2)
       else:
         x = upsample(x)
-      print(x[0, 0, 0, 0])
 
     # noise for image
     return x
