@@ -7,6 +7,8 @@ import plotter
 import layers
 import pickle
 
+IMAGE_SHAPE = (32, 32, 1)
+
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
   def __init__(self, image_shape, num_downsamples=3, batch_size=64):
@@ -41,28 +43,6 @@ class UNet(Model):
     num_filters = 2 ** (4 + self.num_downsamples)
     self.middle_conv1 = Conv2D(num_filters, 3, padding='same')
     self.middle_conv2 = Conv2D(num_filters, 3, padding='same')
-
-  def save_weights(self, filepath, overwrite=True, save_format=None, options=None):
-    out = []
-    out.append(self.downsample_layers)
-    out.append(self.upsample_layers)
-    out.append(self.num_downsamples)
-    out.append(self.batch_size)
-    out.append(self.image_shape)
-    out.append(self.middle_conv1)
-    out.append(self.middle_conv2)
-
-    pickle.dump(out, open(filepath, 'wb'))
-
-  def load_weights(self, filepath):
-    save_arr = pickle.load(open(filepath, 'rb'))
-    self.downsample_layers = save_arr[0]
-    self.upsample_layers = save_arr[1]
-    self.num_downsamples = save_arr[2]
-    self.batch_size = save_arr[3]
-    self.image_shape = save_arr[4]
-    self.middle_conv1 = save_arr[5]
-    self.middle_conv2 = save_arr[6]
 
   def call(self, inputs, batch_timestep_list):
     x = inputs
@@ -164,14 +144,14 @@ class UNet(Model):
       # show avg loss for each epoch
       print(f'Epoch {epoch + 1} / {epochs} - Average Loss: {np.mean(losses):.4f}')
 
-  def sample_timestep(self, x, timestep):
+  def sample_timestep(self, x: tf.Tensor, timestep):
     offset = 1e-5
     alpha_t = noiser.ALPHAS[timestep]
     sqrt_beta_t = noiser.BETAS[timestep] ** 0.5
     alpha_bar_t = noiser.ALPHA_BAR[timestep]
     recip_sqrt_alpha_t = 1 / (alpha_t ** 0.5)
 
-    predicted_noise = self(x, np.array([timestep]))
+    predicted_noise = self(x, tf.constant([timestep]))
     noise_coefficient = (1 - alpha_t) / ((1 - alpha_bar_t + offset) ** 0.5)
 
     predicted_mean = recip_sqrt_alpha_t * (x - noise_coefficient * predicted_noise)
@@ -187,7 +167,7 @@ class UNet(Model):
   def sample(self, num_samples=1):
     samples = []
     for _ in range(num_samples):
-      w, h, c = self.image_shape
+      w, h, c = IMAGE_SHAPE
       denoised = tf.random.normal(shape=(1, w, h, c))
 
       for timestep in range(noiser.TIMESTEPS - 1, -1, -1):
@@ -195,3 +175,26 @@ class UNet(Model):
         samples.append(denoised)
     
     return samples
+  
+  def save_weights(self, filepath, overwrite=True, save_format=None, options=None):
+    out = []
+    out.append(self.downsample_layers)
+    out.append(self.upsample_layers)
+    out.append(self.num_downsamples)
+    out.append(self.batch_size)
+    out.append(self.image_shape)
+    out.append(self.middle_conv1)
+    out.append(self.middle_conv2)
+
+    pickle.dump(out, open(filepath, 'wb'))
+
+  def load_weights(self, filepath):
+    save_arr = pickle.load(open(filepath, 'rb'))
+    
+    self.downsample_layers = save_arr[0]
+    self.upsample_layers = save_arr[1]
+    self.num_downsamples = save_arr[2]
+    self.batch_size = save_arr[3]
+    self.image_shape = save_arr[4]
+    self.middle_conv1 = save_arr[5]
+    self.middle_conv2 = save_arr[6]
