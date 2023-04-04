@@ -3,7 +3,7 @@ import numpy as np
 from keras.layers import Conv2D
 from keras import Model
 import noiser
-from plotter import update_losses, update_samples, draw_plots, activate_plots
+import plotter
 import layers
 import pickle
 
@@ -116,18 +116,19 @@ class UNet(Model):
   def get_loss(self, actual, theoretical):
     return tf.reduce_mean(tf.square(actual - theoretical))
   
-  def train(self, data, epochs=5, learning_rate=8e-6, show_samples=False, show_losses=True):
+  def train(self, data, epochs=5, batch_size=48, learning_rate=8e-6, show_samples=False, show_losses=False):
     if len(data.shape) != 4:
       raise ValueError('data must be a 4-tuple in the form of (num_samples, height, width, channels)')
     if show_losses or show_samples:
-      activate_plots()
+      plotter.activate_plots()
        
     optimizer = tf.keras.optimizers.Adam(learning_rate)
 
     for epoch in range(epochs):
-      for batch in range (0, len(data), self.batch_size):
+      num_batches = (len(data) // batch_size) + 1
+      for batch in range (0, len(data), batch_size):
         # select a batch of images
-        original_images = data[batch : batch + self.batch_size]
+        original_images = data[batch : batch + batch_size]
 
         # generate num_batches random timesteps
         timesteps = tf.random.uniform([len(original_images)], 1, noiser.TIMESTEPS, dtype=tf.int32)
@@ -147,19 +148,19 @@ class UNet(Model):
         gradients = tape.gradient(loss, self.trainable_variables)
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         
-        print(f'epoch: {epoch}, batch: {batch}, loss: {loss}')
+        print(f'epoch: {epoch + 1} / {epochs}, batch: {(batch // batch_size) + 1} / {num_batches}, loss: {loss}')
 
         # show losses every batch
         if show_losses and batch:
-          update_losses(loss)
+          plotter.update_losses(loss)
 
         # show sample every 10 batches
-        if show_samples and batch % (self.batch_size * 10) == 0:
-          update_samples(batch, epoch, loss, original_images[0], major_noisy_images[0], network_generated_noise[0], timesteps[0])
+        if show_samples and batch % (batch_size * 10) == 0:
+          plotter.update_samples(batch, epoch, loss, original_images[0], major_noisy_images[0], network_generated_noise[0], timesteps[0])
           
         # draw if we need to draw something
         if show_losses or show_samples:
-          draw_plots()
+          plotter.draw_plots()
 
   def sample_timestep(self, x, timestep):
     offset = 1e-5
