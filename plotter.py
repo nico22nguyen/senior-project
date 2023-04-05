@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 
 # Don't initialize figures in case the user doesn't want to see them.
 # If it's initialized, there will be a figure that pops up whether the user requests it or not.
@@ -98,4 +99,9 @@ def draw_plots():
 
 def imshow_rgb_safe(img):
   is_rgb = len(img.shape) >= 3 and img.shape[-1] == 3
-  imshow_rgb_safe(img, cmap='gray' if not is_rgb else None)
+
+  # scale and cast to uint8 if necessary
+  if is_rgb and img.dtype == np.float32:
+    img = (img + 1) * 127.5
+    img = tf.cast(img, tf.uint8)
+  plt.imshow(img, cmap='gray' if not is_rgb else None)
