@@ -135,7 +135,7 @@ class UNet(Model):
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         
         losses.append(loss)
-        progress_bar.update((batch // batch_size) + 1, values=[("loss", loss)])
+        progress_bar.update(batch // batch_size, values=[("loss", loss)])
 
         # show losses every batch
         if show_losses and batch:
