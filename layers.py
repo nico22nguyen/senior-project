@@ -4,6 +4,16 @@ import keras.layers as layers
 import tensorflow as tf
 import tensorflow_addons as tfa
 
+class Sequential(layers.Layer):
+  def __init__(self, layers):
+    super().__init__()
+    self.layers = layers
+
+  def call(self, x):
+    for layer in self.layers:
+      x = layer(x)
+    return x
+
 class SiLU(layers.Layer):
   def __init__(self):
     super(SiLU, self).__init__()
@@ -100,7 +110,7 @@ class ResnetBlock(layers.Layer):
   def __init__(self, dim, dim_out, time_emb_dim=None, groups=8):
     super().__init__()
 
-    self.time_mlp = keras.Sequential([SiLU(), layers.Dense(dim_out * 2)]) if time_emb_dim is not None else None
+    self.time_mlp = Sequential([SiLU(), layers.Dense(dim_out * 2)]) if time_emb_dim is not None else None
     self.block1 = Block(dim_out, groups)
     self.block2 = Block(dim_out, groups)
     self.residual_conv = layers.Conv2D(dim_out, 1, strides=1) if dim != dim_out else Identity()

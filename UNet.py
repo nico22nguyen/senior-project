@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from keras.layers import Conv2D, Dense
-from keras import Model, Sequential
+from keras import Model
 import noiser
 import plotter
 import layers
@@ -29,7 +29,7 @@ class UNet(Model):
 
     time_dim = channel_increase_per_downsample * 4
 
-    self.time_mlp = Sequential([
+    self.time_mlp = layers.Sequential([
       layers.SinusoidalPosEmb(channel_increase_per_downsample),
       Dense(time_dim),
       layers.GELU(),
