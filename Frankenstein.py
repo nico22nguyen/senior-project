@@ -5,7 +5,7 @@ from keras import Model
 from functools import partial
 import plotter
 import noiser
-import medium_code as layers
+import Diffusion_test as layers
 import numpy as np
 
 IMAGE_SHAPE = (32, 32, 1)

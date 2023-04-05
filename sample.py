@@ -1,7 +1,4 @@
-# from medium_code import Unet #UNet import UNet
 import tensorflow as tf
-import keras
-from plotter import show_sample_process
 from matplotlib import pyplot as plt
 import noiser
 from Diffusion_test import Unet, timesteps, ddpm
