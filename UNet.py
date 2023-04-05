@@ -11,7 +11,7 @@ IMAGE_SHAPE = (160, 160, 1)
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
-  def __init__(self, channel_increase_per_downsample=64, dim_multipliers=(1, 2, 4, 8), channels=3, resnet_block_groups=8):
+  def __init__(self, channel_increase_per_downsample=64, dim_multipliers=(1, 2, 4, 8), channels=3):
     super().__init__()
     
     self.channels = channels
