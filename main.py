@@ -5,11 +5,30 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import noiser
 
-def preprocess(x: tf.Tensor, target_shape=(32, 32)):
+def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
+  if len(target_shape) != 2:
+    raise ValueError('target_shape must be a tuple of length 2')
+  
+  # shuffle data, reduce samples if necessary 
+  if limit_num_samples_to is not None:
+    random_indices = np.random.choice(x.shape[0], limit_num_samples_to, replace=False)
+    x = tf.gather(x, random_indices)
+  else:
+    np.random.shuffle(x)
+
+  # map data from [0, 255] -> [-1, 1]
   normalized: tf.Tensor = tf.cast(x, tf.float32) / 127.5 - 1
+
+  # add channel dimension if necessary
   if len(normalized.shape) < 4:
-    normalized = tf.expand_dims(normalized, axis=-1)
+    tf.expand_dims(normalized, axis=-1)
+  
+  # resize to desired shape
   return tf.image.resize(normalized, target_shape)
+
+def imshow_rgb_safe(img: tf.Tensor):
+  is_rgb = len(img.shape) == 3 and img.shape[-1] == 3
+  plt.imshow(img, cmap='gray' if not is_rgb else None)
 
 # ask user if they want to save the weights
 def ask_to_save():
@@ -41,7 +60,7 @@ if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
 model = UNet(channels=1)
-model.train(data, show_samples=False, show_losses=False, epochs=5)
+model.train(data, show_samples=False, show_losses=False, epochs=5, batch_size=2)
 model.save_weights('models/custom.pkl')
 
 plt.ion()
@@ -49,14 +68,14 @@ while True:
   samples = model.sample()
   for i, sample in enumerate(samples):
     plt.suptitle(f'Timestep {noiser.TIMESTEPS - i}')
-    plt.imshow(np.squeeze(sample), cmap='gray')
+    imshow_rgb_safe(np.squeeze(sample))
     plt.show()
     plt.pause(0.01)
     plt.clf()
     
   final = np.array(np.clip((samples[-1][0] + 1) * 127.5, 0, 255), np.uint8)
   plt.suptitle('Final Image')
-  plt.imshow(final, cmap='gray')
+  imshow_rgb_safe(final)
   plt.show()
   plt.pause(0.1)
   plt.clf()
