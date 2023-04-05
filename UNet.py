@@ -7,7 +7,7 @@ import plotter
 import layers
 import pickle
 
-IMAGE_SHAPE = (250, 250, 3)
+IMAGE_SHAPE = (160, 160, 3)
 
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
