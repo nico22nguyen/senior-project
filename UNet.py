@@ -200,7 +200,7 @@ class UNet(Model):
     pickle.dump(out, open(filepath, 'wb'))
 
   def load_weights(self, filepath):
-    save_dict: list = pickle.load(open(filepath, 'rb'))
+    save_dict = pickle.load(open(filepath, 'rb'))
 
     self.channels = save_dict['channels']
     self.downsample_layers = save_dict['downsample_layers']
