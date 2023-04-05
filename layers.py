@@ -1,13 +1,8 @@
-import keras.layers as layers
-import keras
-import tensorflow_addons as tfa
-import tensorflow as tf
-import numpy as np
-import noiser
 import math
-
-range = np.linspace(0,np.pi,noiser.TIMESTEPS)
-embeddings= tf.stack((tf.math.sin(range), tf.math.cos(range)))
+import keras
+import keras.layers as layers
+import tensorflow as tf
+import tensorflow_addons as tfa
 
 class SiLU(layers.Layer):
   def __init__(self):
@@ -83,39 +78,6 @@ class Identity(layers.Layer):
   def call(self, inputs):
     return inputs
   
-class TimeMLP(layers.Layer):
-  def __init__(self, num_channels):
-    super().__init__()
-    self.dense = layers.Dense(num_channels)
-
-  def call(self, timestep_list):
-    embedded_timesteps = tf.transpose(tf.gather(embeddings, timestep_list, axis=1))
-
-    # calculate embeddings
-    time_vector = self.dense(embedded_timesteps)
-
-    # expand list to be added with batch of images
-    return tf.expand_dims(tf.expand_dims(time_vector, axis=1), axis=1)
-  
-class Conv2DWithTime(layers.Layer):
-  def __init__(self, num_filters, kernel_size):
-    super().__init__()
-    self.conv1 = layers.Conv2D(num_filters, kernel_size, padding='same', activation='relu')
-    self.time1 = TimeMLP(num_filters)
-    self.conv2 = layers.Conv2D(num_filters, kernel_size, padding='same', activation='relu')
-    self.time2 = TimeMLP(num_filters)
-
-  def call(self, inputs, timestep_list):
-    conv1_out = self.conv1(inputs)
-    t_e1 = self.time1(timestep_list)
-    x = conv1_out + t_e1
-
-    conv2_out = self.conv2(x)
-    t_e2 = self.time1(timestep_list)
-    x = conv2_out + t_e2
-
-    return x
-  
 class Block(layers.Layer):
   def __init__(self, num_filters, groups=8):
     super().__init__()
@@ -155,22 +117,3 @@ class ResnetBlock(layers.Layer):
     x = self.block2(x)
 
     return x + self.residual_conv(inputs)
-  
-class Conv2DTransposeWithTime(layers.Layer):
-  def __init__(self, num_filters, kernel_size):
-    super().__init__()
-    self.conv1 = layers.Conv2DTranspose(num_filters, kernel_size, padding='same', activation='relu')
-    self.time1 = TimeMLP(num_filters)
-    self.conv2 = layers.Conv2DTranspose(num_filters, kernel_size, padding='same', activation='relu')
-    self.time2 = TimeMLP(num_filters)
-
-  def call(self, inputs, timestep_list):
-    conv1_out = self.conv1(inputs)
-    t_e1 = self.time1(timestep_list)
-    x = conv1_out + t_e1
-
-    conv2_out = self.conv2(x)
-    t_e2 = self.time1(timestep_list)
-    x = conv2_out + t_e2
-
-    return x
