@@ -56,29 +56,29 @@ def update_samples(batch_num, epoch_num, loss, dataset_image, noised_at_t, unet_
 
   # show image from data set
   plt.subplot(3, 1, 1)
-  plt.imshow(dataset_image, cmap='gray')
+  imshow_rgb_safe(dataset_image)
   plt.title('image from dataset')
 
   # show noised image at t
   plt.subplot(3, 1, 2)
-  plt.imshow(noised_at_t, cmap='gray')
+  imshow_rgb_safe(noised_at_t)
   plt.title(f'image at timestep {timestep}')
 
   """
   # show noised image at t-1
   plt.subplot(3, 3, 7)
-  plt.imshow(noised_at_t_minus_1, cmap='gray')
+  imshow_rgb_safe(noised_at_t_minus_1)
   plt.title(f'image at timestep {timestep - 1}')
   """
 
   # show unet generated noise
   plt.subplot(3, 3, 8)
-  plt.imshow(unet_noise, cmap='gray')
+  imshow_rgb_safe(unet_noise)
   plt.title('noise gen by unet')
 
   # show unet generated noise
   plt.subplot(3, 3, 9)
-  plt.imshow(unet_noise + noised_at_t, cmap='gray')
+  imshow_rgb_safe(unet_noise + noised_at_t)
   plt.title(f'unet prediction at timestep {timestep}')
 
 def show_sample_process(img_noising_sequence):
@@ -88,10 +88,14 @@ def show_sample_process(img_noising_sequence):
       if i == 9 and j == 9:
         continue
       plt.subplot(10, 10, i * 10 + j + 1)
-      plt.imshow(img_noising_sequence[i * 10 + j], cmap='gray')
+      imshow_rgb_safe(img_noising_sequence[i * 10 + j])
 
   plt.show()
 
 def draw_plots():
   plt.pause(0.05)
   plt.show(block=False)
+
+def imshow_rgb_safe(img):
+  is_rgb = len(img.shape) >= 3 and img.shape[-1] == 3
+  imshow_rgb_safe(img, cmap='gray' if not is_rgb else None)

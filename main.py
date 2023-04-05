@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import noiser
+import plotter
 
 def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
   if len(target_shape) != 2:
@@ -25,10 +26,6 @@ def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
   
   # resize to desired shape
   return tf.image.resize(normalized, target_shape)
-
-def imshow_rgb_safe(img: tf.Tensor):
-  is_rgb = len(img.shape) == 3 and img.shape[-1] == 3
-  plt.imshow(img, cmap='gray' if not is_rgb else None)
 
 # ask user if they want to save the weights
 def ask_to_save():
@@ -68,14 +65,14 @@ while True:
   samples = model.sample()
   for i, sample in enumerate(samples):
     plt.suptitle(f'Timestep {noiser.TIMESTEPS - i}')
-    imshow_rgb_safe(np.squeeze(sample))
+    plotter.imshow_rgb_safe(np.squeeze(sample))
     plt.show()
     plt.pause(0.01)
     plt.clf()
     
   final = np.array(np.clip((samples[-1][0] + 1) * 127.5, 0, 255), np.uint8)
   plt.suptitle('Final Image')
-  imshow_rgb_safe(final)
+  plotter.imshow_rgb_safe(final)
   plt.show()
   plt.pause(0.1)
   plt.clf()
