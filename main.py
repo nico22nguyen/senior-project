@@ -21,7 +21,7 @@ def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
 
   # add channel dimension if necessary
   if len(normalized.shape) < 4:
-    tf.expand_dims(normalized, axis=-1)
+    normalized = tf.expand_dims(normalized, axis=-1)
   
   # resize to desired shape
   return tf.image.resize(normalized, target_shape)
@@ -52,7 +52,7 @@ elif network_code == '4':
 print(data.shape)
 
 # normalize to [-1, 1], resize to 32x32
-data = preprocess(data, target_shape=(160, 160))
+data = preprocess(data, target_shape=(160, 160), limit_num_samples_to=16000)
 print(data.shape)
 
 # add channel dimension if necessary
