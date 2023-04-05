@@ -30,8 +30,7 @@ elif network_code == '3':
 elif network_code == '4':
   data = np.load('data/faces.npy')
 
-print(np.min(data), np.max(data))
-exit()
+print(data.shape)
 
 # normalize to [-1, 1], resize to 32x32
 data = preprocess(data, target_shape=(256, 256))
