@@ -185,28 +185,30 @@ class UNet(Model):
     return samples
   
   def save_weights(self, filepath, overwrite=True, save_format=None, options=None):
-    out = []
-    out.append(self.channels)
-    out.append(self.downsample_layers)
-    out.append(self.upsample_layers)
-    out.append(self.init_conv)
-    out.append(self.time_mlp)
-    out.append(self.mid_block1)
-    out.append(self.mid_block2)
-    out.append(self.final_resnet)
-    out.append(self.final_conv)
+    out = {
+      'channels': self.channels,
+      'downsample_layers': self.downsample_layers,
+      'upsample_layers': self.upsample_layers,
+      'init_conv': self.init_conv,
+      'time_mlp': self.time_mlp,
+      'mid_block1': self.mid_block1,
+      'mid_block2': self.mid_block2,
+      'final_resnet': self.final_resnet,
+      'final_conv': self.final_conv
+    }
 
     pickle.dump(out, open(filepath, 'wb'))
 
   def load_weights(self, filepath):
-    save_arr: list = pickle.load(open(filepath, 'rb'))
+    save_dict: list = pickle.load(open(filepath, 'rb'))
+
+    self.channels = save_dict['channels']
+    self.downsample_layers = save_dict['downsample_layers']
+    self.upsample_layers = save_dict['upsample_layers']
+    self.init_conv = save_dict['init_conv']
+    self.time_mlp = save_dict['time_mlp']
+    self.mid_block1 = save_dict['mid_block1']
+    self.mid_block2 = save_dict['mid_block2']
+    self.final_resnet = save_dict['final_resnet']
+    self.final_conv = save_dict['final_conv']
     
-    self.final_conv = save_arr.pop()
-    self.final_resnet = save_arr.pop()
-    self.mid_block2 = save_arr.pop()
-    self.mid_block1 = save_arr.pop()
-    self.time_mlp = save_arr.pop()
-    self.init_conv = save_arr.pop()
-    self.upsample_layers = save_arr.pop()
-    self.downsample_layers = save_arr.pop()
-    self.channels = save_arr.pop()
