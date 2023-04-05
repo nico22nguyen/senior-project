@@ -7,7 +7,7 @@ import noiser
 
 def preprocess(x: tf.Tensor, target_shape=(32, 32)):
   normalized: tf.Tensor = tf.cast(x, tf.float32) / 127.5 - 1
-  while len(normalized.shape) < 4:
+  if len(normalized.shape) < 4:
     normalized = tf.expand_dims(normalized, axis=-1)
   return tf.image.resize(normalized, target_shape)
 
@@ -17,7 +17,7 @@ def ask_to_save():
   if saveYN == 'y':
     model.save_weights('models/medium_mnist_weights')
 
-network_code = '4'# input('Which network would you like to train?\n\t1. MNIST\n\t2. Shoes\n\t3. Cats and Dogs\n\t4. Faces\n')
+network_code = '3'# input('Which network would you like to train?\n\t1. MNIST\n\t2. Shoes\n\t3. Cats and Dogs\n\t4. Faces\n')
 
 # load data
 if network_code == '1':
@@ -33,7 +33,7 @@ elif network_code == '4':
 print(data.shape)
 
 # normalize to [-1, 1], resize to 32x32
-data = preprocess(data, target_shape=(256, 256))
+data = preprocess(data, target_shape=(160, 160))
 print(data.shape)
 
 # add channel dimension if necessary
