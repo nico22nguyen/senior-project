@@ -1,4 +1,4 @@
-import keras.datasets.mnist as mnist
+#import keras.datasets.mnist as mnist
 from UNet import UNet
 import numpy as np
 import tensorflow as tf
@@ -37,19 +37,20 @@ network_code = '3'# input('Which network would you like to train?\n\t1. MNIST\n\
 
 # load data
 if network_code == '1':
-  (x_train, _), (x_test, _) = mnist.load_data()
-  data = np.concatenate((x_train, x_test))
+  raise ValueError('you forgot to uncomment the mnist import statement')
+  #(x_train, _), (x_test, _) = mnist.load_data()
+  #data = np.concatenate((x_train, x_test)) # rescale to (32, 32)
 elif network_code == '2':
-  data = np.load('data/shoes.npy')
+  data = np.load('data/shoes.npy') # rescale to (36, 48)
 elif network_code == '3':
-  data = np.load('data/cats_dogs.npy')
+  data = np.load('data/cats_dogs.npy')[:100] # rescale to (64, 64)
 elif network_code == '4':
-  data = np.load('data/faces.npy')
+  data = np.load('data/faces.npy') # ?
 
 print(data.shape)
 
-# normalize to [-1, 1], resize to 32x32
-data = preprocess(data, target_shape=(160, 160), limit_num_samples_to=16000)
+# normalize to [-1, 1], resize
+data = preprocess(data, target_shape=(64, 64))
 print(data.shape)
 
 # add channel dimension if necessary
@@ -57,8 +58,8 @@ if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
 model = UNet(channels=1)
-model.train(data, show_samples=False, show_losses=False, epochs=5, batch_size=2)
-model.save_weights('models/custom.pkl')
+model.train(data, show_samples=False, show_losses=False, epochs=10, batch_size=64)
+model.save_weights('models/cats_dogs.pkl')
 
 plt.ion()
 while True:
