@@ -10,6 +10,13 @@ def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
   if len(target_shape) != 2:
     raise ValueError('target_shape must be a tuple of length 2')
   
+  # add channel dimension if necessary
+  if len(x.shape) < 4:
+    x = tf.expand_dims(x, axis=-1)
+  
+  # resize to desired shape
+  x = tf.image.resize(x, target_shape)
+
   # shuffle data, reduce samples if necessary 
   if limit_num_samples_to is not None:
     random_indices = np.random.choice(x.shape[0], limit_num_samples_to, replace=False)
@@ -17,15 +24,8 @@ def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
   else:
     np.random.shuffle(x)
 
-  # map data from [0, 255] -> [-1, 1]
-  normalized: tf.Tensor = tf.cast(x, tf.float32) / 127.5 - 1
-
-  # add channel dimension if necessary
-  if len(normalized.shape) < 4:
-    normalized = tf.expand_dims(normalized, axis=-1)
-  
-  # resize to desired shape
-  return tf.image.resize(normalized, target_shape)
+  # map data from [0, 255] -> [-1, 1] and return
+  return tf.cast(x, tf.float32) / 127.5 - 1
 
 # ask user if they want to save the weights
 def ask_to_save():
@@ -43,7 +43,7 @@ if network_code == '1':
 elif network_code == '2':
   data = np.load('data/shoes.npy') # rescale to (36, 48)
 elif network_code == '3':
-  data = np.load('data/cats_dogs.npy')[:100] # rescale to (64, 64)
+  data = np.load('data/cats_dogs.npy') # rescale to (64, 64)
 elif network_code == '4':
   data = np.load('data/faces.npy') # ?
 
@@ -58,7 +58,7 @@ if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
 model = UNet(channels=1)
-model.train(data, show_samples=False, show_losses=False, epochs=10, batch_size=64)
+model.train(data, show_samples=False, show_losses=False, epochs=10, batch_size=16)
 model.save_weights('models/cats_dogs.pkl')
 
 plt.ion()
