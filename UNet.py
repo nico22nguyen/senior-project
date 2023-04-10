@@ -14,6 +14,11 @@ class UNet(Model):
   def __init__(self, channel_increase_per_downsample=64, dim_multipliers=(1, 2, 4, 8), channels=3):
     super().__init__()
     
+    for i in range(len(dim_multipliers))[1:]:
+      if dim_multipliers[i] <= dim_multipliers[i - 1]:
+        raise ValueError('dim_multipliers must be strictly increasing')
+
+    self.max_dim_multiplier = dim_multipliers[-1]
     self.channels = channels
     self.downsample_layers = []
     self.upsample_layers = []
@@ -66,6 +71,9 @@ class UNet(Model):
     self.final_conv = Conv2D(channels, 1, padding='same')
 
   def call(self, inputs, batch_timestep_list):
+    if inputs.shape[1] % self.max_dim_multiplier != 0 or inputs.shape[2] % self.max_dim_multiplier != 0:
+      raise ValueError(f'input height and width must be a multiple of the largest dimension multiplier: {self.max_dim_multiplier}')
+  
     x = self.init_conv(inputs)
     time_embedding = self.time_mlp(batch_timestep_list)
 
