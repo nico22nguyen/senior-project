@@ -48,13 +48,12 @@ class UNet(Model):
       self.downsample_layers.append([
         layers.ResnetBlock(dim_in, dim_out, time_dim),
         layers.ResnetBlock(dim_out, dim_out, time_dim),
-        layers.Residual(layers.AttentionAndGroupNorm()),
+        layers.Residual(layers.GroupNorm()),
         layers.Downsample() if not is_last_layer else layers.Identity()
       ])
 
     mid_dim = dims[-1] # highest dimension (number of channels)
     self.mid_block1 = layers.ResnetBlock(mid_dim, mid_dim, time_emb_dim=time_dim)
-    # self.mid_attn = layers.Residual(layers.PreNorm(mid_dim, layers.Attention(mid_dim)))
     self.mid_block2 = layers.ResnetBlock(mid_dim, mid_dim, time_emb_dim=time_dim)
     
     # initialize upsampling layers
@@ -62,7 +61,7 @@ class UNet(Model):
       self.upsample_layers.append([
         layers.ResnetBlock(dim_out * 2, dim_in, time_dim),
         layers.ResnetBlock(dim_in, dim_in, time_dim),
-        layers.Residual(layers.AttentionAndGroupNorm()),
+        layers.Residual(layers.GroupNorm()),
         layers.Upsample(dim_in)
       ])
       
@@ -81,24 +80,23 @@ class UNet(Model):
     skip_connections = []
 
     # call downsampling layers
-    for [conv1, conv2, attention, downsample] in self.downsample_layers:
+    for [conv1, conv2, groupnorm, downsample] in self.downsample_layers:
       x = conv1(x, time_embedding)
       x = conv2(x, time_embedding)
-      x = attention(x)
+      x = groupnorm(x)
       skip_connections.append(x)
       x = downsample(x)
 
     # bottleneck
     x = self.mid_block1(x, time_embedding)
-    ### x = self.mid_attn(x) Attention not working yet
     x = self.mid_block2(x, time_embedding)
 
     # call upsampling layers
-    for [conv1, conv2, attention, upsample] in self.upsample_layers:
+    for [conv1, conv2, groupnorm, upsample] in self.upsample_layers:
       x = x + skip_connections.pop() # maybe use tf.concat axis=-1 here instead
       x = conv1(x, time_embedding)
       x = conv2(x, time_embedding)
-      x = attention(x)
+      x = groupnorm(x)
       x = upsample(x)
 
     # final convolutions

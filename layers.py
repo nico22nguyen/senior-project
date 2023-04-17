@@ -44,16 +44,13 @@ class SinusoidalPosEmb(layers.Layer):
 
     return emb
 
-# couldn't get attention to work
-class AttentionAndGroupNorm(layers.Layer):
+class GroupNorm(layers.Layer):
   def __init__(self, num_groups=1):
     super().__init__()
     self.group_norm = tfa.layers.GroupNormalization(num_groups)
 
   def call(self, inputs):
-    x = inputs # layers.Attention()(inputs)
-    x = self.group_norm(x)
-    return x
+    return self.group_norm(inputs)
 
 class Residual(layers.Layer):
   def __init__(self, layer):
