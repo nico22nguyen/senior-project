@@ -1,5 +1,4 @@
 import math
-import keras
 import keras.layers as layers
 import tensorflow as tf
 import tensorflow_addons as tfa
