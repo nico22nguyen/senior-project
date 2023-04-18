@@ -56,7 +56,6 @@ elif network_code == '4':
 
 # normalize to [-1, 1], resize
 data = preprocess(data, target_shape=target_shape)
-print(data.shape)
 
 # add channel dimension if necessary
 if len(data.shape) != 4:
