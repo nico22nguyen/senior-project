@@ -40,17 +40,17 @@ channels = 1
 # load data
 if network_code == '1':
   (x_train, _), (x_test, _) = mnist.load_data()
-  data = np.concatenate((x_train, x_test)) # rescale to (32, 32)
+  data = np.concatenate((x_train, x_test))
   target_shape = (32, 32)
 elif network_code == '2':
-  data = np.load('data/shoes.npy') # rescale to (36, 48)
+  data = np.load('data/shoes.npy')
   target_shape = (36, 48)
   channels = 3
 elif network_code == '3':
-  data = np.load('data/cats_dogs.npy') # rescale to (64, 64)
+  data = np.load('data/cats_dogs.npy')
   target_shape = (64, 64)
 elif network_code == '4':
-  data = np.load('data/faces.npy') # ?
+  data = np.load('data/faces.npy')
   target_shape = (72, 72)
   channels = 3
 
