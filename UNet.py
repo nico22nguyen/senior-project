@@ -7,11 +7,9 @@ import plotter
 import layers
 import pickle
 
-IMAGE_SHAPE = (64, 64, 1)
-
 # Our implementation of the UNet architecture, first described in Ho et al. https://arxiv.org/pdf/2006.11239.pdf
 class UNet(Model):
-  def __init__(self, channel_increase_per_downsample=64, dim_multipliers=(1, 2, 4, 8), channels=3):
+  def __init__(self, channel_increase_per_downsample=64, dim_multipliers=(1, 2, 4, 8), channels=3, image_shape=(32, 32, 1)):
     super().__init__()
     
     for i in range(len(dim_multipliers))[1:]:
@@ -22,6 +20,7 @@ class UNet(Model):
     self.channels = channels
     self.downsample_layers = []
     self.upsample_layers = []
+    self.image_shape = image_shape
 
     init_dim = channel_increase_per_downsample // 3 * 2
     self.init_conv = Conv2D(init_dim, 7, padding='same')
@@ -181,7 +180,7 @@ class UNet(Model):
   def sample(self, num_samples=1):
     samples = []
     for _ in range(num_samples):
-      w, h, c = IMAGE_SHAPE
+      w, h, c = self.image_shape
       denoised = tf.random.normal(shape=(1, w, h, c))
 
       for timestep in range(noiser.TIMESTEPS - 1, -1, -1):

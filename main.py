@@ -1,4 +1,4 @@
-#import keras.datasets.mnist as mnist
+import keras.datasets.mnist as mnist
 from UNet import UNet
 import numpy as np
 import tensorflow as tf
@@ -22,7 +22,7 @@ def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
     random_indices = np.random.choice(x.shape[0], limit_num_samples_to, replace=False)
     x = tf.gather(x, random_indices)
   else:
-    np.random.shuffle(x)
+    x = tf.random.shuffle(x)
 
   # map data from [0, 255] -> [-1, 1] and return
   return tf.cast(x, tf.float32) / 127.5 - 1
@@ -33,33 +33,38 @@ def ask_to_save():
   if saveYN == 'y':
     model.save_weights('models/medium_mnist_weights')
 
-network_code = '3'# input('Which network would you like to train?\n\t1. MNIST\n\t2. Shoes\n\t3. Cats and Dogs\n\t4. Faces\n')
+network_code = input('Which network would you like to train?\n\t1. MNIST\n\t2. Shoes\n\t3. Cats and Dogs\n\t4. Faces\n')
+target_shape = (32, 32)
+channels = 1
 
 # load data
 if network_code == '1':
-  raise ValueError('you forgot to uncomment the mnist import statement')
-  #(x_train, _), (x_test, _) = mnist.load_data()
-  #data = np.concatenate((x_train, x_test)) # rescale to (32, 32)
+  (x_train, _), (x_test, _) = mnist.load_data()
+  data = np.concatenate((x_train, x_test)) # rescale to (32, 32)
+  target_shape = (32, 32)
 elif network_code == '2':
   data = np.load('data/shoes.npy') # rescale to (36, 48)
+  target_shape = (36, 48)
+  channels = 3
 elif network_code == '3':
   data = np.load('data/cats_dogs.npy') # rescale to (64, 64)
+  target_shape = (64, 64)
 elif network_code == '4':
   data = np.load('data/faces.npy') # ?
-
-print(data.shape)
+  target_shape = (72, 72)
+  channels = 3
 
 # normalize to [-1, 1], resize
-data = preprocess(data, target_shape=(64, 64))
+data = preprocess(data, target_shape=target_shape)
 print(data.shape)
 
 # add channel dimension if necessary
 if len(data.shape) != 4:
   data = np.expand_dims(data, axis=-1)
 
-model = UNet(channels=1)
+image_shape = (target_shape[0], target_shape[1], channels)
+model = UNet(channels=channels, image_shape=image_shape)
 model.train(data, show_samples=False, show_losses=False, epochs=10, batch_size=16)
-model.save_weights('models/cats_dogs.pkl')
 
 plt.ion()
 while True:
