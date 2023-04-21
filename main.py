@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import noiser
 import plotter
 
-def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None):
+def preprocess(x: tf.Tensor, target_shape, limit_num_samples_to=None) -> tf.Tensor:
   if len(target_shape) != 2:
     raise ValueError('target_shape must be a tuple of length 2')
   
