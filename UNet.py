@@ -92,7 +92,7 @@ class UNet(Model):
 
     # call upsampling layers
     for [conv1, conv2, groupnorm, upsample] in self.upsample_layers:
-      x = x + skip_connections.pop() # maybe use tf.concat axis=-1 here instead
+      x = x + skip_connections.pop()
       x = conv1(x, time_embedding)
       x = conv2(x, time_embedding)
       x = groupnorm(x)
