@@ -97,11 +97,13 @@ def draw_plots():
   plt.pause(0.05)
   plt.show(block=False)
 
-def imshow_rgb_safe(img):
+def imshow_rgb_safe(img, axs=None):
   is_rgb = len(img.shape) >= 3 and img.shape[-1] == 3
 
   # scale and cast to uint8 if necessary
   if is_rgb and img.dtype == np.float32:
     img = (img + 1) * 127.5
     img = tf.cast(img, tf.uint8)
-  plt.imshow(img, cmap='gray' if not is_rgb else None)
+
+  shower = plt if axs is None else axs
+  shower.imshow(img, cmap='gray' if not is_rgb else None)

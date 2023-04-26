@@ -27,6 +27,7 @@ class GELU(layers.Layer):
   def call(self, x: tf.Tensor):
     return 0.5 * x * (1.0 + tf.math.erf(x / tf.cast(1.4142135623730951, x.dtype)))
   
+# function courtesy of Vedant Jumle https://medium.com/@vedantjumle/image-generation-with-diffusion-models-using-keras-and-tensorflow-9f60aae72ac
 class SinusoidalPosEmb(layers.Layer):
   def __init__(self, dim, max_positions=10000):
     super(SinusoidalPosEmb, self).__init__()

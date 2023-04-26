@@ -60,15 +60,15 @@ elif network_code == '4':
   data = np.load('data/faces.npy')
   target_shape = (80, 80)
   channels = 3
-  save_file = 'models/faes.pkl'
+  save_file = 'models/faces.pkl'
 
 # normalize to [-1, 1], resize
 data = preprocess(data, target_shape=target_shape)
 image_shape = (target_shape[0], target_shape[1], channels)
 
-model = UNet(channels=channels, image_shape=image_shape)
+model = UNet(channels=channels, image_shape=image_shape, dim_multipliers=(1, 2, 4, 8, 16))
 start_time = time.perf_counter()
-model.train(data, show_samples=False, show_losses=False, epochs=25, batch_size=10)
+model.train(data, show_samples=False, show_losses=False, epochs=50, batch_size=48)
 end_time = time.perf_counter()
 print(f'model trained in {end_time - start_time} seconds')
 model.save_weights(save_file)
