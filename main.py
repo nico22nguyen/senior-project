@@ -60,7 +60,7 @@ elif network_code == '4':
   data = np.load('data/faces.npy')
   target_shape = (80, 80)
   channels = 3
-  save_file = 'models/faes.pkl'
+  save_file = 'models/faces.pkl'
 
 # normalize to [-1, 1], resize
 data = preprocess(data, target_shape=target_shape)
